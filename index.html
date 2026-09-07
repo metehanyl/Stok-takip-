@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --bg:#D8D3C2;
@@ -450,23 +451,25 @@
       importedFisNos: KANTAR_SEED_FIS.slice(),
       // Kantar fişindeki Mal Kodu → kart eşleşmesi (bilinen ürünler önceden eşlendi)
       kantarMap: {'150.30004':'misir', '150.30039':'narenciye', '150.30077':'ormansal'},
-      approvedUsers: [
-        {email:'r.demirel@fbyenerji.com', addedBy:'Kullanıcı (seed)', addedAt:Date.now()},
-        {email:'o.kurt@fbyenerji.com', addedBy:'Kullanıcı (seed)', addedAt:Date.now()},
-        {email:'t.ceylan@fbyenerji.com', addedBy:'Kullanıcı (seed)', addedAt:Date.now()},
-        {email:'ilhan.calli@calligida.com.tr', addedBy:'Kullanıcı (seed)', addedAt:Date.now()},
-        {email:'s.koyuncu@fbyenerji.com', addedBy:'Kullanıcı (seed)', addedAt:Date.now()},
-        {email:'mahmut.cay@calligida.com.tr', addedBy:'Kullanıcı (seed)', addedAt:Date.now()},
-        {email:'zeynep.calli@calligida.com.tr', addedBy:'Kullanıcı (seed)', addedAt:Date.now()}
-      ]
+      approvedUsers: []
     };
   }
 
+  // ---------- SUPABASE BAĞLANTISI ----------
+  // Uygulama artık verisini Claude'un window.storage'ı yerine gerçek bir
+  // Supabase veritabanında tutuyor. Aynı SUPABASE_URL + KEY ile açılan her
+  // kopya (GitHub Pages üzerinden herkese aynı link) aynı veriye bağlanır.
+  var SUPABASE_URL = 'https://knykwvdglntlhyzsgkjv.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_EBFzd7N1UiYiV0a4vcMBKg_PwprHHN-';
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  var APP_STATE_ROW_ID = 'main';
+
   async function loadDB(){
     try{
-      var res = await window.storage.get('app-data', true);
-      if(res && res.value){
-        var parsed = JSON.parse(res.value);
+      var res = await sb.from('app_state').select('data').eq('id', APP_STATE_ROW_ID).maybeSingle();
+      if(res.error) throw res.error;
+      if(res.data && res.data.data){
+        var parsed = res.data.data;
         parsed.cards = parsed.cards || [];
         parsed.levels = parsed.levels || {stok2:{}, fabrika:{}};
         parsed.levels.stok2 = parsed.levels.stok2 || {};
@@ -489,8 +492,8 @@
     try{
       if(DB.log.length > 600) DB.log = DB.log.slice(DB.log.length-600);
       if(DB.changes.length > 300) DB.changes = DB.changes.slice(0,300);
-      var r = await window.storage.set('app-data', JSON.stringify(DB), true);
-      if(!r){ toast('Kaydedilemedi — bağlantıyı kontrol edin'); }
+      var r = await sb.from('app_state').upsert({id: APP_STATE_ROW_ID, data: DB, updated_at: new Date().toISOString()});
+      if(r.error){ throw r.error; }
     }catch(e){
       toast('Kaydedilemedi — bağlantıyı kontrol edin');
     }
@@ -1273,17 +1276,7 @@
 
 
     html += '<div class="entry-card"><div class="title">Soru Sor</div>';
-    html += '<div class="chat-log" id="chat-log">';
-    if(!chatHistory.length){
-      html += '<div class="chat-typing">Örn: "Anlaşma nasıl eklerim?", "Sarf nasıl hesaplanıyor?", "Fabrika kapasitesini nereden değiştiririm?"</div>';
-    } else {
-      chatHistory.forEach(function(m){
-        html += '<div class="chat-bubble '+(m.role==='user'?'user':'assistant')+'">'+esc(m.content)+'</div>';
-      });
-    }
-    if(asistanLoading) html += '<div class="chat-typing">Yazıyor…</div>';
-    html += '</div>';
-    html += '<div class="chat-input-row"><input type="text" id="chat-input" placeholder="Sorunuzu yazın…" autocomplete="off"'+(asistanLoading?' disabled':'')+'><button class="btn btn-primary" id="chat-send-btn"'+(asistanLoading?' disabled':'')+'>Gönder</button></div>';
+    html += '<div class="note" style="margin:0;">Bu bölümdeki serbest sohbet, uygulamanın önceki (claude.ai üzerinden açılan) sürümünde Claude\'un arka planda sağladığı, anahtar gerektirmeyen bir bağlantıyı kullanıyordu. Bağımsız (GitHub) sürümde bu bağlantı yok, o yüzden şimdilik kapalı — yukarıdaki Hızlı Rehber tüm sekmeleri ve günlük rutini anlatmaya devam ediyor. İsterseniz kendi Anthropic API anahtarınızla (console.anthropic.com) bu özellik ayrıca eklenebilir.</div>';
     html += '</div>';
 
     document.getElementById('view').innerHTML = html;
@@ -1724,8 +1717,7 @@
 
     var savedEmail = null;
     try{
-      var r = await window.storage.get('user-email', false);
-      if(r && r.value) savedEmail = r.value;
+      savedEmail = localStorage.getItem('stok-sahasi-user-email');
     }catch(e){ /* henüz kayıtlı e-posta yok */ }
 
     if(savedEmail && isApprovedEmail(savedEmail)){
@@ -1770,7 +1762,7 @@
     }
     var wasEmpty = !DB.approvedUsers || !DB.approvedUsers.length;
     currentUser = email;
-    try{ await window.storage.set('user-email', email, false); }catch(e){}
+    try{ localStorage.setItem('stok-sahasi-user-email', email); }catch(e){}
     if(wasEmpty){
       DB.approvedUsers = DB.approvedUsers || [];
       DB.approvedUsers.push({email:email, addedBy:'sistem (ilk kullanıcı)', addedAt:Date.now()});
@@ -1783,7 +1775,7 @@
   }
 
   document.getElementById('change-user-btn').addEventListener('click', async function(){
-    try{ await window.storage.delete('user-email', false); }catch(e){}
+    try{ localStorage.removeItem('stok-sahasi-user-email'); }catch(e){}
     currentUser = null;
     document.getElementById('app').style.display = 'none';
     document.getElementById('gate').style.display = 'flex';
