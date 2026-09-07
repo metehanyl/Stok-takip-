@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stok Sahası">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Stok Sahası — OMP · FBY Enerji</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#D8D3C2;
+    --panel:#F0EDE2;
+    --panel-2:#E7E2D2;
+    --ink:#221F1A;
+    --ink-soft:#5B564A;
+    --ochre:#B8862E;
+    --ochre-deep:#8E661F;
+    --rust:#8B4331;
+    --moss:#56613F;
+    --line: rgba(34,31,26,0.16);
+    --line-strong: rgba(34,31,26,0.32);
+    --font-d: 'Big Shoulders', sans-serif;
+    --font-b: 'IBM Plex Sans', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    font-family:var(--font-b);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    background:var(--panel);
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    box-shadow: 0 0 0 1px var(--line);
+  }
+  /* Topbar */
+  .topbar{
+    padding:18px 18px 14px;
+    border-bottom:1px solid var(--line-strong);
+    background:var(--ink);
+    color:var(--panel);
+  }
+  .topbar .brand{
+    font-family:var(--font-d);
+    font-weight:700;
+    font-size:24px;
+    letter-spacing:0.2px;
+    line-height:1;
+  }
+  .topbar .brand span{color:var(--ochre);}
+  .topbar .sub{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:8px;
+    font-size:13px;
+    color:#C9C4B4;
+  }
+  .topbar .sub button{
+    background:none;border:none;color:var(--ochre);
+    font-family:var(--font-b);font-size:13px;font-weight:600;
+    padding:4px 0;cursor:pointer;
+  }
+  .refresh-btn{
+    background:none;border:1px solid rgba(255,255,255,0.25);color:#C9C4B4;
+    border-radius:3px;padding:4px 9px;font-size:12px;font-family:var(--font-b);
+    cursor:pointer;
+  }
+  /* Main view */
+  #view{
+    flex:1;
+    padding:16px 16px 90px;
+    overflow-y:auto;
+  }
+  h2.page-title{
+    font-family:var(--font-d);
+    font-weight:700;
+    font-size:22px;
+    margin:0 0 4px;
+  }
+  p.page-sub{
+    margin:0 0 18px;
+    color:var(--ink-soft);
+    font-size:13.5px;
+    line-height:1.5;
+  }
+  /* Hero stock bar */
+  .hero{
+    background:var(--ink);
+    color:var(--panel);
+    border-radius:2px;
+    padding:18px 16px;
+    margin-bottom:20px;
+  }
+  .hero .big{
+    font-family:var(--font-d);
+    font-weight:800;
+    font-size:40px;
+    line-height:1;
+    color:var(--panel);
+  }
+  .hero .big small{font-size:18px;font-weight:600;color:#C9C4B4;margin-left:6px;}
+  .hero .label{font-size:12.5px;color:#C9C4B4;margin-top:2px;}
+  .stackbar{
+    display:flex;height:14px;border-radius:2px;overflow:hidden;margin-top:14px;
+    background:rgba(255,255,255,0.08);
+  }
+  .stackbar .seg{height:100%;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:10px;}
+  .legend .item{display:flex;align-items:center;gap:6px;font-size:12px;color:#DAD6C8;}
+  .legend .dot{width:9px;height:9px;border-radius:1px;display:inline-block;}
+  /* Ledger rows */
+  .ledger{border-top:1px solid var(--line);}
+  .ledger .row{
+    display:flex;justify-content:space-between;align-items:flex-start;
+    padding:12px 0;border-bottom:1px solid var(--line);gap:12px;
+  }
+  .ledger .row .name{font-weight:600;font-size:14.5px;}
+  .ledger .row .meta{font-size:12px;color:var(--ink-soft);margin-top:3px;line-height:1.5;}
+  .ledger .row .figs{text-align:right;flex-shrink:0;}
+  .ledger .row .figs .ton{font-family:var(--font-d);font-weight:700;font-size:19px;}
+  .ledger .row .figs .days{font-size:11.5px;margin-top:2px;}
+  .flag{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px;}
+  .flag.ok{background:var(--moss);}
+  .flag.low{background:var(--rust);}
+  .flag.unknown{background:var(--line-strong);}
+  /* Sections */
+  .section{margin-bottom:24px;}
+  .section-title{
+    font-family:var(--font-d);font-weight:700;font-size:16px;
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin-bottom:10px;
+  }
+  .section-title .hint{font-family:var(--font-b);font-weight:500;font-size:11.5px;color:var(--ink-soft);}
+  /* Forms */
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;font-weight:600;}
+  .field input, .field select, .field textarea{
+    width:100%;border:1px solid var(--line-strong);background:var(--panel);
+    border-radius:2px;padding:9px 10px;font-family:var(--font-b);font-size:14.5px;color:var(--ink);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{outline:2px solid var(--ochre);outline-offset:1px;}
+  .row2{display:flex;gap:10px;}
+  .row2 .field{flex:1;}
+  .btn{
+    display:inline-block;border:none;border-radius:2px;padding:10px 16px;
+    font-family:var(--font-b);font-weight:600;font-size:14px;cursor:pointer;
+  }
+  .btn-primary{background:var(--ochre-deep);color:#F5F2E8;}
+  .btn-primary:active{background:var(--ochre);}
+  .btn-ghost{background:none;border:1px solid var(--line-strong);color:var(--ink);}
+  .btn-danger{background:none;color:var(--rust);border:1px solid var(--rust);}
+  .btn-block{width:100%;text-align:center;}
+  .tabs2{display:flex;border:1px solid var(--line-strong);border-radius:2px;overflow:hidden;margin-bottom:16px;}
+  .tabs2 button{
+    flex:1;background:var(--panel);border:none;padding:9px;font-family:var(--font-b);
+    font-weight:600;font-size:13px;color:var(--ink-soft);cursor:pointer;border-right:1px solid var(--line-strong);
+  }
+  .tabs2 button:last-child{border-right:none;}
+  .tabs2 button.active{background:var(--ink);color:var(--panel);}
+  .entry-card{
+    border:1px solid var(--line);border-radius:2px;padding:12px 12px 4px;margin-bottom:10px;background:var(--panel-2);
+  }
+  .entry-card .title{font-weight:600;font-size:14px;margin-bottom:8px;}
+  .card-row{
+    display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);
+    gap:10px;
+  }
+  .card-row .txt{flex:1;font-size:13.5px;}
+  .card-row .txt .small{display:block;color:var(--ink-soft);font-size:11.5px;margin-top:2px;}
+  .empty{
+    text-align:center;padding:40px 16px;color:var(--ink-soft);font-size:13.5px;
+    border:1px dashed var(--line-strong);border-radius:2px;
+  }
+  .change-row{padding:11px 0;border-bottom:1px solid var(--line);}
+  .change-row .ts{font-size:11px;color:var(--ink-soft);margin-bottom:2px;}
+  .change-row .user{font-weight:700;}
+  .blend-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+  .blend-row .pct{color:var(--ink-soft);font-size:12px;}
+  .note{
+    font-size:12px;color:var(--ink-soft);background:var(--panel-2);border-left:3px solid var(--ochre);
+    padding:8px 10px;margin-top:10px;line-height:1.5;
+  }
+  .chat-log{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;max-height:50vh;overflow-y:auto;padding-right:2px;}
+  .chat-bubble{max-width:85%;padding:9px 12px;border-radius:3px;font-size:13.5px;line-height:1.55;white-space:pre-wrap;}
+  .chat-bubble.user{align-self:flex-end;background:var(--ochre-deep);color:#F5F2E8;}
+  .chat-bubble.assistant{align-self:flex-start;background:var(--panel-2);border:1px solid var(--line);}
+  .chat-typing{font-size:12px;color:var(--ink-soft);font-style:italic;}
+  .chat-input-row{display:flex;gap:8px;}
+  .chat-input-row input{flex:1;}
+  /* Tabbar */
+  .tabbar{
+    position:sticky;bottom:0;left:0;right:0;
+    display:flex;background:var(--ink);border-top:1px solid rgba(255,255,255,0.1);
+  }
+  .tabbar button{
+    flex:1;background:none;border:none;padding:9px 2px 8px;color:#8B8677;
+    font-family:var(--font-b);font-size:10.5px;font-weight:600;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+  }
+  .tabbar button.active{color:var(--ochre);}
+  .tabbar svg{width:20px;height:20px;}
+  /* Toast */
+  #toast{
+    position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:var(--panel);padding:10px 18px;border-radius:3px;font-size:13px;
+    opacity:0;pointer-events:none;transition:opacity .2s ease, transform .2s ease;z-index:50;
+    max-width:80%;text-align:center;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  /* Username overlay */
+  #gate{
+    position:fixed;inset:0;background:var(--ink);color:var(--panel);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:30px;z-index:100;text-align:center;
+  }
+  #gate .brand{font-family:var(--font-d);font-weight:800;font-size:30px;margin-bottom:6px;}
+  #gate .brand span{color:var(--ochre);}
+  #gate p{color:#C9C4B4;font-size:13.5px;max-width:320px;margin:0 0 22px;line-height:1.6;}
+  #gate input{
+    width:100%;max-width:280px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.06);
+    color:var(--panel);border-radius:2px;padding:12px 14px;font-size:15px;margin-bottom:14px;font-family:var(--font-b);
+  }
+  #gate input:focus{outline:2px solid var(--ochre);}
+  #loading{
+    position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-d);font-size:16px;color:var(--ink-soft);z-index:90;
+  }
+  @media (min-width:481px){
+    body{padding:24px 0;}
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">Yükleniyor…</div>
+
+<div id="gate" style="display:none;">
+  <div class="brand">STOK<span>·</span>SAHASI</div>
+  <p>OMP &amp; FBY Enerji biyokütle yakıt stok takip ve harman planlama uygulaması. Devam etmek için e-posta adresinizi ve şifreyi girin — yaptığınız her değişiklik bu adresle kaydedilir.</p>
+  <input type="email" id="gate-input" placeholder="ornek@sirket.com" autocomplete="email">
+  <input type="password" id="gate-password" placeholder="Şifre" autocomplete="current-password">
+  <button class="btn btn-primary" id="gate-btn" style="width:100%;max-width:280px;">Devam Et</button>
+  <p id="gate-denied" style="display:none;color:#D08A7A;font-size:12.5px;margin-top:14px;max-width:300px;"></p>
+</div>
+
+<div id="app" style="display:none;">
+  <div class="topbar">
+    <div class="brand">STOK<span>·</span>SAHASI</div>
+    <div class="sub">
+      <span id="user-label"></span>
+      <span style="display:flex;gap:8px;">
+        <button class="refresh-btn" id="refresh-btn">Yenile</button>
+        <button id="change-user-btn">değiştir</button>
+      </span>
+    </div>
+  </div>
+  <div id="view"></div>
+  <div class="tabbar" id="tabbar">
+    <button data-tab="asistan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v11H8l-4 4V4Z"/><path d="M8 9h8M8 12h5"/></svg>
+      Asistan
+    </button>
+    <button data-tab="kantar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v4M7 7h10M12 7l-5 9a5 5 0 0 0 10 0l-5-9Z"/><path d="M4 21h16"/></svg>
+      Kantar Girişi
+    </button>
+    <button data-tab="onsaha">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 16l5-6 4 4 6-8 3 4"/><path d="M3 20h18"/></svg>
+      Fabrika Stok
+    </button>
+    <button data-tab="giris">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="1"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      Anlaşmalar
+    </button>
+    <button data-tab="harman">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3c2 3-2 4-2 7a2 2 0 0 0 4 0c0-1-1-1.5-1-2.5"/><path d="M7 21c-2-1-3-3-3-5.5C4 11 8 9 8 6c1 2 2 3 2 5.5S8 15 8 17c0 1.5 1.5 3 4 4"/></svg>
+      Stoğa Göre Harman
+    </button>
+    <button data-tab="kartlar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="1"/><path d="M3 10h18"/></svg>
+      Ürünler
+    </button>
+    <button data-tab="ozet">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="10" width="4" height="10"/><rect x="10" y="5" width="4" height="15"/><rect x="17" y="13" width="4" height="7"/></svg>
+      Özet
+    </button>
+    <button data-tab="gecmis">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/><path d="M12 8v5l3 2"/></svg>
+      Geçmiş
+    </button>
+    <button data-tab="kullanicilar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.5 2.5-6 5.5-6s5.5 2.5 5.5 6"/><circle cx="17.5" cy="8.5" r="2.4"/><path d="M15 14.3c2.4.3 4.5 2.4 4.5 5.7"/></svg>
+      Kullanıcılar
+    </button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var LOC_LABEL = {stok2:'Stok2', fabrika:'Fabrika', '':'Belirlenmedi'};
+  var DB = null;
+  var currentUser = null;
+  var activeTab = 'asistan';
+  var selDate = yesterdayISO();
+  var selLoc = 'fabrika';
+  var blendTarget = null; // computed lazily
+  var kantarPending = null; // parsed-but-not-yet-committed kantar import
+  var editingAgreementId = null;
+  var chatHistory = [];
+  var asistanLoading = false;
+  var ASISTAN_SYSTEM_PROMPT = "Sen OMP & FBY Enerji biyokütle yakıt stok takip uygulamasının içindeki bir asistansın. Türkçe, kısa ve net cevap ver. Uygulama tanımı: "
+    + "Bu uygulama, bir biyokütle enerji santralinin yakıt stoğunu iki sahada (Stok2: uzak/yedek depo, Fabrika: yakma sahası — üretim depo + üretim öncesi depo / ön saha) takip eder. "
+    + "Sekmeler sırasıyla: (1) Kantar Girişi — kantar programından alınan .xlsx dökümü buradan yüklenir (Gittiği Yer 'STOK' içeriyorsa Stok2, değilse Fabrika'ya giriş sayılır; Geldiği Yer 'STOK-2' ise iç transferdir; ürün ilk kez görülürse bir kez eşleştirilir, sonra Mal Kodu ile hatırlanır; aynı fiş iki kez içe aktarılamaz). Daha önce kantar dökümü yüklenmiş ama sonradan atlanan günler burada kırmızı yazıyla uyarılır. "
+    + "(2) Fabrika Stok — kullanıcı günlük olarak (varsayılan Fabrika, Stok2 de seçilebilir) 'Sahada Görülen Stok' (fiilen sayılan miktar) girer; uygulama önceki stok + (kantardan gelen giriş) − sayım = günlük nihai kullanım işlemini otomatik yapar. Sayım girilmezse hiçbir şey değişmez. "
+    + "(3) Anlaşmalar — Tedarikçi anlaşmaları (firma, tarih, toplam miktar, birden fazla ürün seçilebilir) kaydedilir; gelen/kalan miktar, o anlaşma tarihinden sonra kaydedilen girişlerden (kantar dahil) otomatik hesaplanır. "
+    + "(4) Stoğa Göre Harman — Fabrika'nın doluluğu, kapasitesi, kaç gün yakıt kaldığı, Stok2'den Fabrika'ya çekilmesi gereken ürünler ve bugün yakılması gereken harman (kalorifik değeriyle) burada gösterilir. "
+    + "(5) Ürünler — yakıt türleri ve kalorifik değerleri (kcal/kg) burada tanımlanır/düzenlenir. "
+    + "(6) Özet — stok sayımlarından hesaplanan günlük nihai kullanım geçmişi ve kısa çıkarımlar (ortalama, en yüksek/düşük gün, anomali uyarıları) burada listelenir. "
+    + "(7) Geçmiş — kim, ne zaman, ne değiştirdi kaydı. "
+    + "Günlük rutin: her sabah önce Kantar Girişi sekmesinden bir önceki günün kantar dökümü yüklenir, sonra Fabrika Stok sekmesinde (Fabrika seçili, dünün tarihiyle) fiilen görülen miktar girilir; günlük nihai kullanım böylece otomatik çıkar ve Özet sayfasında birikir. "
+    + "Sorulara sadece bu uygulamanın kullanımıyla ilgili, kısa ve pratik cevaplar ver; emin olmadığın konularda (örn. gerçek stok rakamları, şirket kararları) tahmin yapma, kullanıcıya sahadan teyit almasını söyle.";
+
+  function dateCellToISO(d){
+    if(!(d instanceof Date)) return '';
+    var y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+day;
+  }
+  function trDate(iso){
+    if(!iso) return '';
+    var d = new Date(iso+'T00:00:00');
+    return d.toLocaleDateString('tr-TR');
+  }
+  function computeMissingKantarDays(){
+    var seen = {};
+    DB.log.forEach(function(e){
+      if(e.source==='kantar' || e.source==='kantar-transfer') seen[e.date] = true;
+    });
+    var keys = Object.keys(seen).sort();
+    if(!keys.length) return [];
+    var cursor = new Date(keys[0]+'T00:00:00');
+    var endDate = new Date(yesterdayISO()+'T00:00:00');
+    var missing = [];
+    while(cursor <= endDate){
+      var iso = cursor.toISOString().slice(0,10);
+      if(!seen[iso]) missing.push(iso);
+      cursor.setDate(cursor.getDate()+1);
+    }
+    return missing;
+  }
+
+  function computeMissingSayimDays(){
+    var seen = {};
+    DB.log.forEach(function(e){
+      if(e.location==='fabrika' && e.sayim!==null && e.sayim!==undefined) seen[e.date] = true;
+    });
+    var keys = Object.keys(seen).sort();
+    if(!keys.length) return [];
+    var cursor = new Date(keys[0]+'T00:00:00');
+    var endDate = new Date(yesterdayISO()+'T00:00:00');
+    var missing = [];
+    while(cursor <= endDate){
+      var iso = cursor.toISOString().slice(0,10);
+      if(!seen[iso]) missing.push(iso);
+      cursor.setDate(cursor.getDate()+1);
+    }
+    return missing;
+  }
+
+  function todayISO(){ return new Date().toISOString().slice(0,10); }
+  function yesterdayISO(){ var d = new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); }
+  function uid(){ return 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function nowLabel(ts){
+    var d = new Date(ts);
+    return d.toLocaleDateString('tr-TR') + ' ' + d.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
+  }
+  function fmtTon(n){
+    n = Number(n)||0;
+    return n.toLocaleString('tr-TR', {maximumFractionDigits:2, minimumFractionDigits:0}) + ' t';
+  }
+  function fmtKcal(n){
+    n = Number(n)||0;
+    return Math.round(n).toLocaleString('tr-TR') + ' kcal/kg';
+  }
+  function esc(s){
+    return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function toast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast._h);
+    toast._h = setTimeout(function(){ t.classList.remove('show'); }, 2200);
+  }
+
+  // 06.09.2026 kantar dökümü — gerçek dosyadan işlenmiş (79 fiş: 65 dış giriş, 14 Stok2→Fabrika transferi)
+  var KANTAR_SEED_LOG = [{"id": "seedk001l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 4.26, "sayim": null, "sarf": 0, "oncekiSeviye": 1252, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206481", "firma": "FBY ENERJİ"}, {"id": "seedk002l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 4.62, "sayim": null, "sarf": 0, "oncekiSeviye": 1256.26, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206482", "firma": "FBY ENERJİ"}, {"id": "seedk003l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 5.86, "sayim": null, "sarf": 0, "oncekiSeviye": 1260.88, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206484", "firma": "FBY ENERJİ"}, {"id": "seedk004l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 5.26, "sayim": null, "sarf": 0, "oncekiSeviye": 1266.74, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206486", "firma": "FBY ENERJİ"}, {"id": "seedk005l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 21.66, "sayim": null, "sarf": 0, "oncekiSeviye": 0, "user": "Kullanıcı", "source": "kantar", "fisNo": "206487", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk006l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 19.08, "sayim": null, "sarf": 0, "oncekiSeviye": 21.66, "user": "Kullanıcı", "source": "kantar", "fisNo": "206489", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk007l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 4.48, "sayim": null, "sarf": 0, "oncekiSeviye": 1272.0, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206490", "firma": "FBY ENERJİ"}, {"id": "seedk008l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 22.9, "sayim": null, "sarf": 0, "oncekiSeviye": 40.74, "user": "Kullanıcı", "source": "kantar", "fisNo": "206492", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk009l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 5.8, "sayim": null, "sarf": 0, "oncekiSeviye": 1276.48, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206494", "firma": "FBY ENERJİ"}, {"id": "seedk010l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 18.6, "sayim": null, "sarf": 0, "oncekiSeviye": 63.64, "user": "Kullanıcı", "source": "kantar", "fisNo": "206495", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk011l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 18.28, "sayim": null, "sarf": 0, "oncekiSeviye": 82.24, "user": "Kullanıcı", "source": "kantar", "fisNo": "206497", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk012l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 22.78, "sayim": null, "sarf": 0, "oncekiSeviye": 100.52, "user": "Kullanıcı", "source": "kantar", "fisNo": "206498", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk013l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 5.14, "sayim": null, "sarf": 0, "oncekiSeviye": 1282.28, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206499", "firma": "FBY ENERJİ"}, {"id": "seedk014l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 6.3, "sayim": null, "sarf": 0, "oncekiSeviye": 1287.42, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206503", "firma": "FBY ENERJİ"}, {"id": "seedk015l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 18.02, "sayim": null, "sarf": 0, "oncekiSeviye": 123.3, "user": "Kullanıcı", "source": "kantar", "fisNo": "206504", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk016l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 15.98, "sayim": null, "sarf": 0, "oncekiSeviye": 141.32, "user": "Kullanıcı", "source": "kantar", "fisNo": "206508", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk017l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 4.2, "sayim": null, "sarf": 0, "oncekiSeviye": 1293.72, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206510", "firma": "FBY ENERJİ"}, {"id": "seedk018l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 15.02, "sayim": null, "sarf": 0, "oncekiSeviye": 157.3, "user": "Kullanıcı", "source": "kantar", "fisNo": "206511", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk019l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 21.9, "sayim": null, "sarf": 0, "oncekiSeviye": 172.32, "user": "Kullanıcı", "source": "kantar", "fisNo": "206513", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk020l", "date": "2026-09-06", "location": "fabrika", "cardId": "narenciye", "giris": 11.18, "sayim": null, "sarf": 0, "oncekiSeviye": 0, "user": "Kullanıcı", "source": "kantar", "fisNo": "206515", "firma": "ALIÇ KARDEŞLER İNŞ.TİC.LTD.ŞTİ."}, {"id": "seedk021l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 6.08, "sayim": null, "sarf": 0, "oncekiSeviye": 1297.92, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206516", "firma": "FBY ENERJİ"}, {"id": "seedk022l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 18.64, "sayim": null, "sarf": 0, "oncekiSeviye": 194.22, "user": "Kullanıcı", "source": "kantar", "fisNo": "206518", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk023l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 17.7, "sayim": null, "sarf": 0, "oncekiSeviye": 212.86, "user": "Kullanıcı", "source": "kantar", "fisNo": "206519", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk024l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 18.02, "sayim": null, "sarf": 0, "oncekiSeviye": 230.56, "user": "Kullanıcı", "source": "kantar", "fisNo": "206520", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk025l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 15.72, "sayim": null, "sarf": 0, "oncekiSeviye": 248.58, "user": "Kullanıcı", "source": "kantar", "fisNo": "206521", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk026l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 22.08, "sayim": null, "sarf": 0, "oncekiSeviye": 264.3, "user": "Kullanıcı", "source": "kantar", "fisNo": "206526", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk027l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 16.0, "sayim": null, "sarf": 0, "oncekiSeviye": 286.38, "user": "Kullanıcı", "source": "kantar", "fisNo": "206532", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk028l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 21.96, "sayim": null, "sarf": 0, "oncekiSeviye": 302.38, "user": "Kullanıcı", "source": "kantar", "fisNo": "206534", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk029l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 17.66, "sayim": null, "sarf": 0, "oncekiSeviye": 324.34, "user": "Kullanıcı", "source": "kantar", "fisNo": "206535", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk030l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 21.7, "sayim": null, "sarf": 0, "oncekiSeviye": 342.0, "user": "Kullanıcı", "source": "kantar", "fisNo": "206537", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk031l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 17.62, "sayim": null, "sarf": 0, "oncekiSeviye": 363.7, "user": "Kullanıcı", "source": "kantar", "fisNo": "206538", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk032l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 5.58, "sayim": null, "sarf": 0, "oncekiSeviye": 1304.0, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206539", "firma": "FBY ENERJİ"}, {"id": "seedk033l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 16.8, "sayim": null, "sarf": 0, "oncekiSeviye": 381.32, "user": "Kullanıcı", "source": "kantar", "fisNo": "206540", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk034l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 15.68, "sayim": null, "sarf": 0, "oncekiSeviye": 398.12, "user": "Kullanıcı", "source": "kantar", "fisNo": "206541", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk035l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 22.16, "sayim": null, "sarf": 0, "oncekiSeviye": 413.8, "user": "Kullanıcı", "source": "kantar", "fisNo": "206542", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk036l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 22.44, "sayim": null, "sarf": 0, "oncekiSeviye": 435.96, "user": "Kullanıcı", "source": "kantar", "fisNo": "206544", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk037l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 26.7, "sayim": null, "sarf": 0, "oncekiSeviye": 458.4, "user": "Kullanıcı", "source": "kantar", "fisNo": "206545", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk038l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 19.02, "sayim": null, "sarf": 0, "oncekiSeviye": 485.1, "user": "Kullanıcı", "source": "kantar", "fisNo": "206546", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk039l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 4.48, "sayim": null, "sarf": 0, "oncekiSeviye": 1309.58, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206550", "firma": "FBY ENERJİ"}, {"id": "seedk040l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 18.52, "sayim": null, "sarf": 0, "oncekiSeviye": 504.12, "user": "Kullanıcı", "source": "kantar", "fisNo": "206551", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk041l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 23.66, "sayim": null, "sarf": 0, "oncekiSeviye": 522.64, "user": "Kullanıcı", "source": "kantar", "fisNo": "206552", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk042l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 16.98, "sayim": null, "sarf": 0, "oncekiSeviye": 546.3, "user": "Kullanıcı", "source": "kantar", "fisNo": "206553", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk043l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 16.56, "sayim": null, "sarf": 0, "oncekiSeviye": 563.28, "user": "Kullanıcı", "source": "kantar", "fisNo": "206555", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk044l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 4.44, "sayim": null, "sarf": 0, "oncekiSeviye": 1314.06, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206556", "firma": "FBY ENERJİ"}, {"id": "seedk045l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 16.26, "sayim": null, "sarf": 0, "oncekiSeviye": 579.84, "user": "Kullanıcı", "source": "kantar", "fisNo": "206558", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk046l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 25.04, "sayim": null, "sarf": 0, "oncekiSeviye": 596.1, "user": "Kullanıcı", "source": "kantar", "fisNo": "206560", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk047l", "date": "2026-09-06", "location": "fabrika", "cardId": "ormansal", "giris": 6.14, "sayim": null, "sarf": 0, "oncekiSeviye": 1318.5, "user": "Kullanıcı", "source": "kantar-transfer", "fisNo": "206561", "firma": "FBY ENERJİ"}, {"id": "seedk048l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 22.38, "sayim": null, "sarf": 0, "oncekiSeviye": 621.14, "user": "Kullanıcı", "source": "kantar", "fisNo": "206562", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk049l", "date": "2026-09-06", "location": "stok2", "cardId": "misir", "giris": 24.06, "sayim": null, "sarf": 0, "oncekiSeviye": 643.52, "user": "Kullanıcı", "source": "kantar", "fisNo": "206565", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk050l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 21.72, "sayim": null, "sarf": 0, "oncekiSeviye": 1971, "user": "Kullanıcı", "source": "kantar", "fisNo": "206568", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk051l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 16.08, "sayim": null, "sarf": 0, "oncekiSeviye": 1992.72, "user": "Kullanıcı", "source": "kantar", "fisNo": "206572", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk052l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 15.56, "sayim": null, "sarf": 0, "oncekiSeviye": 2008.8, "user": "Kullanıcı", "source": "kantar", "fisNo": "206574", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk053l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 16.78, "sayim": null, "sarf": 0, "oncekiSeviye": 2024.36, "user": "Kullanıcı", "source": "kantar", "fisNo": "206577", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk054l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 16.34, "sayim": null, "sarf": 0, "oncekiSeviye": 2041.14, "user": "Kullanıcı", "source": "kantar", "fisNo": "206579", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk055l", "date": "2026-09-06", "location": "fabrika", "cardId": "narenciye", "giris": 12.28, "sayim": null, "sarf": 0, "oncekiSeviye": 11.18, "user": "Kullanıcı", "source": "kantar", "fisNo": "206580", "firma": "ALIÇ KARDEŞLER İNŞ.TİC.LTD.ŞTİ."}, {"id": "seedk056l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 22.12, "sayim": null, "sarf": 0, "oncekiSeviye": 2057.48, "user": "Kullanıcı", "source": "kantar", "fisNo": "206581", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk057l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 17.96, "sayim": null, "sarf": 0, "oncekiSeviye": 2079.6, "user": "Kullanıcı", "source": "kantar", "fisNo": "206583", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk058l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 21.74, "sayim": null, "sarf": 0, "oncekiSeviye": 2097.56, "user": "Kullanıcı", "source": "kantar", "fisNo": "206586", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk059l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 16.2, "sayim": null, "sarf": 0, "oncekiSeviye": 2119.3, "user": "Kullanıcı", "source": "kantar", "fisNo": "206589", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk060l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 15.82, "sayim": null, "sarf": 0, "oncekiSeviye": 2135.5, "user": "Kullanıcı", "source": "kantar", "fisNo": "206592", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk061l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 20.96, "sayim": null, "sarf": 0, "oncekiSeviye": 2151.32, "user": "Kullanıcı", "source": "kantar", "fisNo": "206594", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk062l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 16.1, "sayim": null, "sarf": 0, "oncekiSeviye": 2172.28, "user": "Kullanıcı", "source": "kantar", "fisNo": "206598", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk063l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 17.88, "sayim": null, "sarf": 0, "oncekiSeviye": 2188.38, "user": "Kullanıcı", "source": "kantar", "fisNo": "206600", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk064l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 16.06, "sayim": null, "sarf": 0, "oncekiSeviye": 2206.26, "user": "Kullanıcı", "source": "kantar", "fisNo": "206602", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk065l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 15.78, "sayim": null, "sarf": 0, "oncekiSeviye": 2222.32, "user": "Kullanıcı", "source": "kantar", "fisNo": "206604", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk066l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 17.1, "sayim": null, "sarf": 0, "oncekiSeviye": 2238.1, "user": "Kullanıcı", "source": "kantar", "fisNo": "206605", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk067l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 16.2, "sayim": null, "sarf": 0, "oncekiSeviye": 2255.2, "user": "Kullanıcı", "source": "kantar", "fisNo": "206607", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk068l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 17.92, "sayim": null, "sarf": 0, "oncekiSeviye": 2271.4, "user": "Kullanıcı", "source": "kantar", "fisNo": "206608", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk069l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 16.44, "sayim": null, "sarf": 0, "oncekiSeviye": 2289.32, "user": "Kullanıcı", "source": "kantar", "fisNo": "206610", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk070l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 17.7, "sayim": null, "sarf": 0, "oncekiSeviye": 2305.76, "user": "Kullanıcı", "source": "kantar", "fisNo": "206612", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk071l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 21.12, "sayim": null, "sarf": 0, "oncekiSeviye": 2323.46, "user": "Kullanıcı", "source": "kantar", "fisNo": "206614", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk072l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 17.98, "sayim": null, "sarf": 0, "oncekiSeviye": 2344.58, "user": "Kullanıcı", "source": "kantar", "fisNo": "206617", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk073l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 18.0, "sayim": null, "sarf": 0, "oncekiSeviye": 2362.56, "user": "Kullanıcı", "source": "kantar", "fisNo": "206618", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk074l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 16.96, "sayim": null, "sarf": 0, "oncekiSeviye": 2380.56, "user": "Kullanıcı", "source": "kantar", "fisNo": "206619", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk075l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 24.08, "sayim": null, "sarf": 0, "oncekiSeviye": 2397.52, "user": "Kullanıcı", "source": "kantar", "fisNo": "206620", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk076l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 24.94, "sayim": null, "sarf": 0, "oncekiSeviye": 2421.6, "user": "Kullanıcı", "source": "kantar", "fisNo": "206621", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk077l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 15.94, "sayim": null, "sarf": 0, "oncekiSeviye": 2446.54, "user": "Kullanıcı", "source": "kantar", "fisNo": "206622", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk078l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 19.32, "sayim": null, "sarf": 0, "oncekiSeviye": 2462.48, "user": "Kullanıcı", "source": "kantar", "fisNo": "206623", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}, {"id": "seedk079l", "date": "2026-09-06", "location": "fabrika", "cardId": "misir", "giris": 23.4, "sayim": null, "sarf": 0, "oncekiSeviye": 2481.8, "user": "Kullanıcı", "source": "kantar", "fisNo": "206624", "firma": "PAŞA GERİ DÖNÜŞÜM ENERJİ PET. SAN. VE TİC. A.Ş."}];
+  var KANTAR_SEED_TRANSFERS = [{"id": "seedk001", "date": "2026-09-06", "cardId": "ormansal", "ton": 4.26, "user": "Kullanıcı", "fisNo": "206481"}, {"id": "seedk002", "date": "2026-09-06", "cardId": "ormansal", "ton": 4.62, "user": "Kullanıcı", "fisNo": "206482"}, {"id": "seedk003", "date": "2026-09-06", "cardId": "ormansal", "ton": 5.86, "user": "Kullanıcı", "fisNo": "206484"}, {"id": "seedk004", "date": "2026-09-06", "cardId": "ormansal", "ton": 5.26, "user": "Kullanıcı", "fisNo": "206486"}, {"id": "seedk007", "date": "2026-09-06", "cardId": "ormansal", "ton": 4.48, "user": "Kullanıcı", "fisNo": "206490"}, {"id": "seedk009", "date": "2026-09-06", "cardId": "ormansal", "ton": 5.8, "user": "Kullanıcı", "fisNo": "206494"}, {"id": "seedk013", "date": "2026-09-06", "cardId": "ormansal", "ton": 5.14, "user": "Kullanıcı", "fisNo": "206499"}, {"id": "seedk014", "date": "2026-09-06", "cardId": "ormansal", "ton": 6.3, "user": "Kullanıcı", "fisNo": "206503"}, {"id": "seedk017", "date": "2026-09-06", "cardId": "ormansal", "ton": 4.2, "user": "Kullanıcı", "fisNo": "206510"}, {"id": "seedk021", "date": "2026-09-06", "cardId": "ormansal", "ton": 6.08, "user": "Kullanıcı", "fisNo": "206516"}, {"id": "seedk032", "date": "2026-09-06", "cardId": "ormansal", "ton": 5.58, "user": "Kullanıcı", "fisNo": "206539"}, {"id": "seedk039", "date": "2026-09-06", "cardId": "ormansal", "ton": 4.48, "user": "Kullanıcı", "fisNo": "206550"}, {"id": "seedk044", "date": "2026-09-06", "cardId": "ormansal", "ton": 4.44, "user": "Kullanıcı", "fisNo": "206556"}, {"id": "seedk047", "date": "2026-09-06", "cardId": "ormansal", "ton": 6.14, "user": "Kullanıcı", "fisNo": "206561"}];
+  var KANTAR_SEED_FIS = ["206481", "206482", "206484", "206486", "206487", "206489", "206490", "206492", "206494", "206495", "206497", "206498", "206499", "206503", "206504", "206508", "206510", "206511", "206513", "206515", "206516", "206518", "206519", "206520", "206521", "206526", "206532", "206534", "206535", "206537", "206538", "206539", "206540", "206541", "206542", "206544", "206545", "206546", "206550", "206551", "206552", "206553", "206555", "206556", "206558", "206560", "206561", "206562", "206565", "206568", "206572", "206574", "206577", "206579", "206580", "206581", "206583", "206586", "206589", "206592", "206594", "206598", "206600", "206602", "206604", "206605", "206607", "206608", "206610", "206612", "206614", "206617", "206618", "206619", "206620", "206621", "206622", "206623", "206624"];
+
+  function defaultDB(){
+    var cards = [
+      {id:'misir',              name:'Mısır Atıkları',        kcal:2900},
+      {id:'narenciye',          name:'Dikili Narenciye',       kcal:3800},
+      {id:'cam_kok',            name:'Çam Kök',                kcal:3800},
+      {id:'ormansal',           name:'Ormansal',               kcal:3560},
+      {id:'cam_cipsi',          name:'Çam Cipsi',              kcal:3800},
+      {id:'okaliptus_kok',      name:'Stok-2 Okaliptüs Kök',   kcal:3500}
+    ];
+    // 02.09 stok kırılımı taban alındı (Karışık Kırılmış+Kırılmış Ormansal+Kırıcı Önü Ormansal → tek
+    // "Ormansal" kartı, 1.252t Fabrika), sonra 06.09 kantar dökümü bu tabanın üzerine işlendi.
+    var levels = {
+      stok2:   {misir:667.58, narenciye:7600, cam_kok:4862, ormansal:0, cam_cipsi:0, okaliptus_kok:103},
+      fabrika: {misir:2505.2, narenciye:23.46, cam_kok:0, ormansal:1324.64, cam_cipsi:300, okaliptus_kok:0}
+    };
+    var planned = [
+      {id:uid(), cardIds:['misir'], firma:'Paşa Geri Dönüşüm Enerji', qty:30000, date:'2026-05-25', note:'', user:'Kullanıcı', ts:Date.now()},
+      {id:uid(), cardIds:['ormansal','cam_kok'], firma:'Paşa Geri Dönüşüm Enerji', qty:15000, date:'2026-09-03', note:'Ormansal ve Çam Kökü toplamı — hangi teslimatın hangi ürüne ait olduğu kantar/sayım kaydından ayrışır', user:'Kullanıcı', ts:Date.now()}
+    ];
+    var seedLog = KANTAR_SEED_LOG.map(function(e){ var c={}; for(var k in e) c[k]=e[k]; c.ts=Date.now(); return c; });
+    var seedTransfers = KANTAR_SEED_TRANSFERS.map(function(e){ var c={}; for(var k in e) c[k]=e[k]; c.ts=Date.now(); return c; });
+    return {
+      fabrikaCapacity: 4000,
+      cards: cards,
+      levels: levels,
+      log: seedLog,
+      planned: planned,
+      changes: [
+        {ts:Date.now(), user:'Kullanıcı', text:'Kantar fişi içe aktarıldı (06_09_2026.xlsx): 65 dış giriş (1.225,24 t), 14 Stok2→Fabrika transfer (72,64 t)'},
+        {ts:Date.now(), user:'Kullanıcı', text:'Başlangıç stok verisi yüklendi (demo/seed veri — 02.09 kırılımı)'}
+      ],
+      transfers: seedTransfers,
+      importedFisNos: KANTAR_SEED_FIS.slice(),
+      // Kantar fişindeki Mal Kodu → kart eşleşmesi (bilinen ürünler önceden eşlendi)
+      kantarMap: {'150.30004':'misir', '150.30039':'narenciye', '150.30077':'ormansal'},
+      approvedUsers: [
+        {email:'r.demirel@fbyenerji.com', addedBy:'Kullanıcı (seed)', addedAt:Date.now()},
+        {email:'o.kurt@fbyenerji.com', addedBy:'Kullanıcı (seed)', addedAt:Date.now()},
+        {email:'t.ceylan@fbyenerji.com', addedBy:'Kullanıcı (seed)', addedAt:Date.now()},
+        {email:'ilhan.calli@calligida.com.tr', addedBy:'Kullanıcı (seed)', addedAt:Date.now()},
+        {email:'s.koyuncu@fbyenerji.com', addedBy:'Kullanıcı (seed)', addedAt:Date.now()},
+        {email:'mahmut.cay@calligida.com.tr', addedBy:'Kullanıcı (seed)', addedAt:Date.now()},
+        {email:'zeynep.calli@calligida.com.tr', addedBy:'Kullanıcı (seed)', addedAt:Date.now()}
+      ]
+    };
+  }
+
+  async function loadDB(){
+    try{
+      var res = await window.storage.get('app-data', true);
+      if(res && res.value){
+        var parsed = JSON.parse(res.value);
+        parsed.cards = parsed.cards || [];
+        parsed.levels = parsed.levels || {stok2:{}, fabrika:{}};
+        parsed.levels.stok2 = parsed.levels.stok2 || {};
+        parsed.levels.fabrika = parsed.levels.fabrika || {};
+        parsed.log = parsed.log || [];
+        parsed.planned = parsed.planned || [];
+        parsed.changes = parsed.changes || [];
+        parsed.fabrikaCapacity = parsed.fabrikaCapacity || 4000;
+        parsed.kantarMap = parsed.kantarMap || {};
+        parsed.importedFisNos = parsed.importedFisNos || [];
+        parsed.approvedUsers = parsed.approvedUsers || [];
+        parsed.transfers = parsed.transfers || [];
+        return parsed;
+      }
+    }catch(e){ /* key not found yet, fall through */ }
+    return defaultDB();
+  }
+
+  async function saveDB(){
+    try{
+      if(DB.log.length > 600) DB.log = DB.log.slice(DB.log.length-600);
+      if(DB.changes.length > 300) DB.changes = DB.changes.slice(0,300);
+      var r = await window.storage.set('app-data', JSON.stringify(DB), true);
+      if(!r){ toast('Kaydedilemedi — bağlantıyı kontrol edin'); }
+    }catch(e){
+      toast('Kaydedilemedi — bağlantıyı kontrol edin');
+    }
+  }
+
+  function logChange(text){
+    DB.changes.unshift({ts:Date.now(), user:currentUser, text:text});
+  }
+
+  function cardName(id){
+    var c = DB.cards.filter(function(x){return x.id===id;})[0];
+    return c ? c.name : '(silinmiş kart)';
+  }
+  function cardKcal(id){
+    var c = DB.cards.filter(function(x){return x.id===id;})[0];
+    return c ? c.kcal : 0;
+  }
+  function totalStock(cardId){
+    return fabrikaStock(cardId) + stok2Stock(cardId);
+  }
+  function fabrikaStock(cardId){
+    return Math.max(0, DB.levels.fabrika[cardId]||0);
+  }
+  function stok2Stock(cardId){
+    return Math.max(0, DB.levels.stok2[cardId]||0);
+  }
+  function fabrikaTotal(){
+    return DB.cards.reduce(function(s,c){ return s+fabrikaStock(c.id); }, 0);
+  }
+  function avgDailySarf(cardId, days, location){
+    days = days || 7;
+    var cutoff = new Date(); cutoff.setDate(cutoff.getDate()-days);
+    var cutoffISO = cutoff.toISOString().slice(0,10);
+    var entries = DB.log.filter(function(e){
+      return e.cardId===cardId && e.date>=cutoffISO && e.sarf>0 && (!location || e.location===location);
+    });
+    if(!entries.length) return 0;
+    var total = 0, dates = {};
+    entries.forEach(function(e){ total += e.sarf; dates[e.date]=1; });
+    var n = Object.keys(dates).length || 1;
+    return total/n;
+  }
+  function plannedSum(cardId, daysAhead, location){
+    daysAhead = daysAhead || 14;
+    var today = todayISO();
+    var limit = new Date(); limit.setDate(limit.getDate()+daysAhead);
+    var limitISO = limit.toISOString().slice(0,10);
+    return DB.planned.filter(function(p){
+      if(agreementCardIds(p).indexOf(cardId)<0) return false;
+      if(location && p.location!==location) return false;
+      if(!p.date) return false; // tarihi belirsiz olanlar bu pencereye dahil edilmez
+      return p.date>=today && p.date<=limitISO;
+    }).reduce(function(s,p){ return s+Number(p.qty||0); }, 0);
+  }
+  function daysRemaining(cardId){
+    var avg = avgDailySarf(cardId);
+    if(avg<=0) return null;
+    return totalStock(cardId)/avg;
+  }
+  function daysRemainingFabrika(cardId){
+    var avg = avgDailySarf(cardId, 7, 'fabrika');
+    if(avg<=0) return null;
+    return fabrikaStock(cardId)/avg;
+  }
+
+  function computeBlend(target){
+    var cards = DB.cards;
+    if(!cards.length) return {rows:[], kcal:0};
+    var scored = cards.map(function(c){
+      var stock = totalStock(c.id);
+      var kalan = agreementsKalanForCard(c.id);
+      var dRem = daysRemaining(c.id);
+      var score = stock;
+      if(kalan>0) score *= 1.25;
+      if(dRem!==null && dRem<5 && kalan<=0) score *= 0.5;
+      return {card:c, stock:stock, kalan:kalan, score:Math.max(score,0)};
+    });
+    var scoreSum = scored.reduce(function(s,x){return s+x.score;},0);
+    var rows;
+    if(scoreSum<=0){
+      var stockSum = scored.reduce(function(s,x){return s+x.stock;},0);
+      rows = scored.map(function(x){
+        return {id:x.card.id, name:x.card.name, kcal:x.card.kcal, kalan:x.kalan, share: stockSum>0 ? x.stock/stockSum : 1/scored.length};
+      });
+    } else {
+      rows = scored.map(function(x){
+        return {id:x.card.id, name:x.card.name, kcal:x.card.kcal, kalan:x.kalan, share: x.score/scoreSum};
+      });
+    }
+    rows.forEach(function(r){
+      r.ton = r.share*target;
+      var atFabrika = fabrikaStock(r.id);
+      r.fromFabrika = Math.min(r.ton, atFabrika);
+      r.fromStok2 = Math.min(Math.max(r.ton-atFabrika,0), stok2Stock(r.id));
+      r.short = Math.max(r.ton - r.fromFabrika - r.fromStok2, 0);
+    });
+    var blendKcal = rows.reduce(function(s,r){ return s + r.share*r.kcal; }, 0);
+    return {rows:rows, kcal:blendKcal};
+  }
+
+  function defaultBlendTarget(){
+    var sum = DB.cards.reduce(function(s,c){ return s + avgDailySarf(c.id, 7, 'fabrika'); }, 0);
+    if(sum>0) return Math.round(sum*10)/10;
+    return 10;
+  }
+
+  // Fabrika'nın boş kapasitesini, Stok2'de bekleyen yakıtlardan en yüksek kalorifik
+  // değerliden başlayarak doldurmayı önerir. Basit ve şeffaf bir öncelik kuralı —
+  // gerçek harman ihtiyacına göre elle ayarlanabilir.
+  function computeTransferSuggestion(){
+    var capacity = DB.fabrikaCapacity || 4000;
+    var fabTotal = fabrikaTotal();
+    var free = Math.max(capacity - fabTotal, 0);
+    var candidates = DB.cards
+      .filter(function(c){ return stok2Stock(c.id) > 0; })
+      .sort(function(a,b){ return b.kcal - a.kcal; });
+    var rows = [];
+    var remaining = free;
+    candidates.forEach(function(c){
+      if(remaining<=0) return;
+      var avail = stok2Stock(c.id);
+      var take = Math.min(remaining, avail);
+      if(take>0){
+        rows.push({id:c.id, name:c.name, kcal:c.kcal, take:take, kalanStok2: avail-take});
+        remaining -= take;
+      }
+    });
+    return {capacity:capacity, fabTotal:fabTotal, free:free, rows:rows, unused:remaining};
+  }
+
+  function agreementCardIds(p){
+    return (p.cardIds && p.cardIds.length) ? p.cardIds : (p.cardId ? [p.cardId] : []);
+  }
+  function agreementCardLabel(p){
+    return agreementCardIds(p).map(cardName).join(' + ');
+  }
+  function agreementReceived(p){
+    var ids = agreementCardIds(p);
+    var firma = p.firma && p.firma.trim();
+    return DB.log.filter(function(e){
+      if(!(e.giris>0)) return false;
+      if(ids.indexOf(e.cardId)<0) return false;
+      if(p.date && e.date && e.date<p.date) return false;
+      if(firma){
+        if(!e.firma) return false;
+        var a=e.firma.toUpperCase(), b=firma.toUpperCase();
+        if(a.indexOf(b)<0 && b.indexOf(a)<0) return false;
+      }
+      return true;
+    }).reduce(function(s,e){ return s+e.giris; }, 0);
+  }
+
+  function exportToExcel(){
+    try{
+      var wb = XLSX.utils.book_new();
+
+      var stokRows = [['Ürün','Stok2 (t)','Fabrika (t)','Toplam (t)','Kalori (kcal/kg)']];
+      DB.cards.forEach(function(c){
+        stokRows.push([c.name, stok2Stock(c.id), fabrikaStock(c.id), totalStock(c.id), c.kcal]);
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(stokRows), 'Stok Durumu');
+
+      var aRows = [['Ürün(ler)','Firma','Anlaşma Tarihi','Toplam (t)','Gelen (t)','Kalan (t)','Not']];
+      DB.planned.forEach(function(p){
+        var gelen = agreementReceived(p);
+        aRows.push([agreementCardLabel(p), p.firma||'', p.date||'belirsiz', p.qty, gelen, Math.max(p.qty-gelen,0), p.note||'']);
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aRows), 'Anlaşmalar');
+
+      var lRows = [['Tarih','Konum','Ürün','Giriş (t)','Sayım (t)','Nihai Kullanım (t)','Kullanıcı','Kaynak','Firma']];
+      DB.log.slice().sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(e){
+        lRows.push([e.date, LOC_LABEL[e.location]||e.location, cardName(e.cardId), e.giris||0, e.sayim===null||e.sayim===undefined?'':e.sayim, e.sarf||0, e.user||'', e.source||'', e.firma||'']);
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(lRows), 'Günlük Kayıtlar');
+
+      var cRows = [['Tarih-Saat','Kullanıcı','Açıklama']];
+      DB.changes.forEach(function(ch){
+        cRows.push([nowLabel(ch.ts), ch.user, ch.text]);
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cRows), 'Değişiklik Geçmişi');
+
+      XLSX.writeFile(wb, 'stok-takip-'+todayISO()+'.xlsx');
+    }catch(err){
+      toast('Excel oluşturulamadı: '+(err&&err.message?err.message:'hata'));
+    }
+  }
+
+  function findUnmatchedKantarEntries(){
+    var agreementsByCard = {};
+    DB.planned.forEach(function(p){
+      agreementCardIds(p).forEach(function(cid){
+        agreementsByCard[cid] = agreementsByCard[cid] || [];
+        agreementsByCard[cid].push(p);
+      });
+    });
+    return DB.log.filter(function(e){
+      if(!(e.giris>0)) return false;
+      if(!e.source || e.source.indexOf('kantar')!==0) return false;
+      var agreements = agreementsByCard[e.cardId];
+      if(!agreements || !agreements.length) return false;
+      var matched = agreements.some(function(p){
+        if(p.date && e.date && e.date<p.date) return false;
+        if(p.firma){
+          if(!e.firma) return false;
+          var a=e.firma.toUpperCase(), b=p.firma.toUpperCase();
+          if(a.indexOf(b)<0 && b.indexOf(a)<0) return false;
+        }
+        return true;
+      });
+      return !matched;
+    });
+  }
+
+  function agreementsKalanForCard(cardId){
+    return DB.planned.reduce(function(s,p){
+      if(agreementCardIds(p).indexOf(cardId)<0) return s;
+      var gelen = agreementReceived(p);
+      return s + Math.max(0, p.qty-gelen);
+    }, 0);
+  }
+
+  // ---------- KANTAR FİŞİ İÇE AKTARIM ----------
+  async function handleKantarFile(file){
+    if(!file) return;
+    toast('Dosya okunuyor…');
+    try{
+      var buf = await file.arrayBuffer();
+      var wb = XLSX.read(buf, {type:'array', cellDates:true});
+      var sheet = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:true, defval:null});
+      var header = (rows[0]||[]).map(function(h){ return String(h||'').trim(); });
+      function ci(name){ return header.indexOf(name); }
+      var iMal=ci('Mal Kodu'), iAd=ci('Malzeme Adı'), iGeldi=ci('Geldiği Yer'), iGitti=ci('Gittiği Yer'),
+          iNet=ci('Net'), iFis=ci('Fiş No'), iTarih=ci('2.Tartı Tarih-Saat'), iFirma=ci('Firma Adı');
+      if(iMal<0 || iNet<0 || iGitti<0){
+        toast('Dosya formatı tanınmadı — beklenen kolonlar bulunamadı');
+        return;
+      }
+      var giris = [], transfer = [], unmappedMap = {}, skipped = 0, seenFis = {};
+      for(var r=1;r<rows.length;r++){
+        var row = rows[r];
+        if(!row || row[iNet]==null) continue;
+        var fisRaw = iFis>=0 ? row[iFis] : r;
+        var fisKey = String(fisRaw);
+        if(seenFis[fisKey]) continue;
+        seenFis[fisKey] = true;
+        if(DB.importedFisNos.indexOf(fisKey)>=0){ skipped++; continue; }
+        var malKoduNum = row[iMal];
+        var malKodu = (typeof malKoduNum==='number') ? malKoduNum.toFixed(5) : String(malKoduNum||'').trim();
+        var malAd = iAd>=0 ? String(row[iAd]||'').trim() : malKodu;
+        var geldigi = iGeldi>=0 ? String(row[iGeldi]||'') : '';
+        var gittigi = String(row[iGitti]||'');
+        var firma = iFirma>=0 ? String(row[iFirma]||'').trim() : '';
+        var net = Number(row[iNet])||0;
+        var ton = Math.round((net/1000)*100)/100;
+        if(ton<=0) continue;
+        var dateVal = iTarih>=0 ? row[iTarih] : null;
+        var date = (dateVal instanceof Date) ? dateCellToISO(dateVal) : todayISO();
+        var hedef = gittigi.toUpperCase().indexOf('STOK')>=0 ? 'stok2' : 'fabrika';
+        var isTransfer = geldigi.toUpperCase().indexOf('STOK')>=0 && hedef==='fabrika';
+        if(!DB.kantarMap[malKodu]) unmappedMap[malKodu] = malAd;
+        var item = {malKodu:malKodu, malAd:malAd, ton:ton, date:date, fisKey:fisKey, hedef:hedef, isTransfer:isTransfer, firma:firma};
+        if(isTransfer) transfer.push(item); else giris.push(item);
+      }
+      kantarPending = {
+        fileName: file.name,
+        giris: giris, transfer: transfer,
+        unmapped: Object.keys(unmappedMap).map(function(k){ return {malKodu:k, malAd:unmappedMap[k]}; }),
+        skipped: skipped
+      };
+      render();
+    }catch(err){
+      toast('Dosya okunamadı: '+(err && err.message ? err.message : 'hata'));
+    }
+  }
+
+  function renderKantarPanelHtml(){
+    if(!kantarPending) return '';
+    var kp = kantarPending;
+    var html = '<div class="note" style="margin-top:10px;"><b>'+esc(kp.fileName)+'</b><br>';
+    html += (kp.giris.length+kp.transfer.length)+' yeni kayıt bulundu';
+    if(kp.skipped>0) html += ', '+kp.skipped+' kayıt daha önce aktarılmış (atlanacak)';
+    html += '.</div>';
+
+    if(kp.unmapped.length){
+      html += '<div class="section" style="margin-top:10px;"><div class="section-title" style="font-size:14px;">Eşleşmeyen Ürünler ('+kp.unmapped.length+')</div>';
+      kp.unmapped.forEach(function(u){
+        html += '<div class="field"><label>'+esc(u.malAd)+' · Mal Kodu: '+esc(u.malKodu)+'</label>';
+        html += '<select data-kantar-map="'+esc(u.malKodu)+'"><option value="">Hangi stok kartı?</option>';
+        DB.cards.forEach(function(c){ html += '<option value="'+c.id+'">'+esc(c.name)+'</option>'; });
+        html += '<option value="__new__">+ Yeni kart oluştur: "'+esc(u.malAd)+'"</option>';
+        html += '</select></div>';
+      });
+      html += '</div>';
+    }
+
+    var groups = {}, gorder = [];
+    kp.giris.concat(kp.transfer).forEach(function(it){
+      var cid = DB.kantarMap[it.malKodu] || null;
+      var key = (cid||('u:'+it.malKodu))+'|'+it.hedef+'|'+(it.isTransfer?'T':'G');
+      if(!groups[key]){ groups[key] = {cardId:cid, malAd:it.malAd, hedef:it.hedef, isTransfer:it.isTransfer, ton:0, n:0}; gorder.push(key); }
+      groups[key].ton += it.ton; groups[key].n++;
+    });
+    if(gorder.length){
+      html += '<div class="section" style="margin-top:10px;"><div class="section-title" style="font-size:14px;">Önizleme</div><div class="ledger">';
+      gorder.forEach(function(k){
+        var g = groups[k];
+        var label = g.cardId ? cardName(g.cardId) : g.malAd+' (eşleşmedi)';
+        html += '<div class="row"><div><div class="name">'+esc(label)+'</div>';
+        html += '<div class="meta">'+esc(LOC_LABEL[g.hedef])+(g.isTransfer?' · Stok2\'den transfer':' · dış giriş')+' · '+g.n+' fiş</div></div>';
+        html += '<div class="figs"><div class="ton">'+fmtTon(g.ton)+'</div></div></div>';
+      });
+      html += '</div></div>';
+    }
+
+    var allItems = kp.giris.concat(kp.transfer);
+    if(allItems.length){
+      var dates = allItems.map(function(it){return it.date;}).filter(Boolean).sort();
+      var dMin = dates[0], dMax = dates[dates.length-1];
+      html += '<div class="note" style="border-left-color:var(--rust);background:rgba(139,67,49,0.08);">';
+      html += '<b style="color:var(--rust);">Tarih aralığını kontrol edin:</b> bu dosya '+(dMin===dMax?trDate(dMin):(trDate(dMin)+' – '+trDate(dMax)))+' tarih(ler)ini kapsıyor. Doğru kantar dosyasını yüklediğinizden emin olun.';
+      html += '</div>';
+    }
+
+    html += '<div class="row2" style="margin-top:10px;">';
+    html += '<button class="btn btn-primary" id="kantar-commit-btn" style="flex:1;">İçe Aktar</button>';
+    html += '<button class="btn btn-ghost" id="kantar-cancel-btn" style="flex:1;">Vazgeç</button>';
+    html += '</div>';
+    return html;
+  }
+
+  // ---------- RENDER: KANTAR FİŞİ ----------
+  function renderKantarGirisi(){
+    var html = '<h2 class="page-title">Kantar Girişi</h2><p class="page-sub">Kantar programından alınan .xlsx raporunu yükleyin — dış girişler ve Stok2 → Fabrika transferleri otomatik işlenir.</p>';
+
+    var missingDays = computeMissingKantarDays();
+    if(missingDays.length){
+      html += '<div class="note" style="border-left-color:var(--rust);background:rgba(139,67,49,0.08);">';
+      html += '<b style="color:var(--rust);">Şu günlerin kantar dökümünü yüklemediniz:</b><br>';
+      html += missingDays.map(trDate).join(', ');
+      html += '</div>';
+    }
+
+    html += '<div class="entry-card">';
+    html += '<input type="file" id="kantar-file-input" accept=".xlsx,.xls" style="display:none;">';
+    html += '<button class="btn btn-primary btn-block" id="kantar-upload-btn">Kantar Fişi Yükle (.xlsx)</button>';
+    html += '<div id="kantar-panel">'+renderKantarPanelHtml()+'</div>';
+    html += '</div>';
+
+    if(DB.transfers.length){
+      var recentTransfers = DB.transfers.slice(-10).reverse();
+      html += '<div class="section" style="margin-top:20px;"><div class="section-title">Son Kantar Transferleri (Stok2 → Fabrika)</div><div class="ledger">';
+      recentTransfers.forEach(function(tr){
+        html += '<div class="row"><div><div class="name">'+esc(cardName(tr.cardId))+'</div>';
+        html += '<div class="meta">'+tr.date+' · '+esc(tr.user)+'</div></div>';
+        html += '<div class="figs"><div class="ton">'+fmtTon(tr.ton)+'</div></div></div>';
+      });
+      html += '</div></div>';
+    }
+
+    document.getElementById('view').innerHTML = html;
+  }
+
+  function renderOnSaha(){
+    var html = '<h2 class="page-title">Fabrika Stok Bilgisi</h2><p class="page-sub">Sahada fiilen görülen stok miktarını girin — günlük nihai kullanım, kantardan gelen girişle aradaki farktan otomatik hesaplanır.</p>';
+
+    var missingSayim = computeMissingSayimDays();
+    if(missingSayim.length){
+      html += '<div class="note" style="border-left-color:var(--rust);background:rgba(139,67,49,0.08);">';
+      html += '<b style="color:var(--rust);">Şu günler için Fabrika stok sayımı girilmedi:</b><br>';
+      html += missingSayim.map(trDate).join(', ');
+      html += '</div>';
+    }
+
+    html += '<div class="row2">';
+    html += '<div class="field"><label>Tarih</label><input type="date" id="entry-date" value="'+selDate+'"></div>';
+    html += '</div>';
+    html += '<div class="row2" style="margin-top:-6px;margin-bottom:10px;">';
+    html += '<button class="btn btn-ghost" data-quickdate="yesterday" style="flex:1;padding:7px;font-size:12px;">Dün</button>';
+    html += '<button class="btn btn-ghost" data-quickdate="today" style="flex:1;padding:7px;font-size:12px;">Bugün</button>';
+    html += '</div>';
+    html += '<div class="tabs2" id="loc-tabs">';
+    html += '<button data-loc="fabrika" class="'+(selLoc==='fabrika'?'active':'')+'">Fabrika</button>';
+    html += '<button data-loc="stok2" class="'+(selLoc==='stok2'?'active':'')+'">Stok2</button>';
+    html += '</div>';
+
+    if(!DB.cards.length){
+      html += '<div class="empty">Önce "Ürünler" sekmesinden en az bir yakıt türü ekleyin.</div>';
+    } else {
+      DB.cards.forEach(function(c){
+        var cur = DB.levels[selLoc][c.id]||0;
+        html += '<div class="entry-card"><div class="title">'+esc(c.name)+'<span style="font-weight:400;color:var(--ink-soft);"> · kayıtlı: '+fmtTon(cur)+'</span></div>';
+        html += '<div class="field"><label>Sahada Görülen Stok (ton)</label><input type="number" step="0.1" min="0" data-card="'+c.id+'" data-kind="sayim" placeholder="boş bırakılabilir"></div>';
+        html += '</div>';
+      });
+      html += '<button class="btn btn-primary btn-block" id="save-entries-btn">Kaydet</button>';
+      html += '<div class="note">Sahada görülen stok, o an fiziksel olarak sayılan miktardır; uygulama önceki stok + (kantardan gelen giriş) − sayım farkından günlük nihai kullanımı otomatik hesaplar. Sayım girilmezse stok ve kullanım değişmez.</div>';
+    }
+
+    html += '<div class="field" style="margin-top:20px;"><label>Fabrika stoklanabilir kapasite (ton)</label>';
+    html += '<input type="number" step="1" min="0" id="capacity-input" value="'+(DB.fabrikaCapacity||4000)+'"></div>';
+
+    var todays = DB.log.filter(function(e){ return e.date===selDate && e.location===selLoc; });
+    html += '<div class="section" style="margin-top:24px;"><div class="section-title">'+esc(LOC_LABEL[selLoc])+' — '+selDate+' Kayıtları</div>';
+    if(!todays.length){
+      html += '<div class="empty">Bu tarih ve konum için henüz kayıt yok.</div>';
+    } else {
+      html += '<div class="ledger">';
+      todays.forEach(function(e){
+        html += '<div class="row"><div>';
+        html += '<div class="name">'+esc(cardName(e.cardId))+'</div>';
+        var metaParts = [];
+        if(e.giris>0) metaParts.push('Giriş (kantar): '+fmtTon(e.giris));
+        if(e.sayim!==null && e.sayim!==undefined) metaParts.push('Sayım: '+fmtTon(e.sayim));
+        metaParts.push('Nihai Kullanım (hesaplanan): '+fmtTon(e.sarf));
+        metaParts.push(esc(e.user));
+        html += '<div class="meta">'+metaParts.join(' · ')+'</div>';
+        if(e.sarf<0) html += '<div class="meta" style="color:var(--rust);">Sayım, beklenenden yüksek çıktı — kayıtsız bir giriş olabilir mi kontrol edin.</div>';
+        html += '</div><div class="figs"><button class="btn btn-danger" data-del-entry="'+e.id+'" style="padding:6px 10px;font-size:12px;">Sil</button></div></div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+
+    document.getElementById('view').innerHTML = html;
+  }
+
+  // ---------- RENDER: ÖZET (Günlük Nihai Kullanım) ----------
+  function dailyUsageSummary(){
+    var byDate = {};
+    DB.log.forEach(function(e){
+      if(e.location!=='fabrika') return;
+      if(e.sayim===null || e.sayim===undefined) return;
+      if(!byDate[e.date]) byDate[e.date] = {date:e.date, total:0, rows:[], anomaly:false};
+      byDate[e.date].rows.push({cardId:e.cardId, sarf:e.sarf});
+      if(e.sarf<0) byDate[e.date].anomaly = true;
+      else byDate[e.date].total += e.sarf;
+    });
+    return Object.keys(byDate).map(function(k){ return byDate[k]; }).sort(function(a,b){ return a.date<b.date?1:-1; });
+  }
+
+  function renderOzet(){
+    var html = '<h2 class="page-title">Özet — Günlük Nihai Kullanım</h2><p class="page-sub">Stok sayımlarından hesaplanan günlük nihai kullanım geçmişi.</p>';
+
+    var days = dailyUsageSummary();
+    if(!days.length){
+      html += '<div class="empty">Henüz stok sayımı girilmedi — "Fabrika Stok" sekmesinden sayım girildikçe burada günlük nihai kullanım görünecek.</div>';
+      document.getElementById('view').innerHTML = html;
+      return;
+    }
+
+    var totals = days.map(function(d){ return d.total; }).filter(function(t){ return t>0; });
+    var avg = totals.length ? totals.reduce(function(s,t){return s+t;},0)/totals.length : null;
+    var maxDay=null, minDay=null;
+    days.forEach(function(d){
+      if(d.total<=0) return;
+      if(!maxDay || d.total>maxDay.total) maxDay=d;
+      if(!minDay || d.total<minDay.total) minDay=d;
+    });
+    var anomalyDays = days.filter(function(d){ return d.anomaly; }).length;
+
+    html += '<div class="hero"><div class="label">Ortalama Günlük Nihai Kullanım</div>';
+    html += '<div class="big" style="font-size:32px;">'+(avg!==null?fmtTon(avg):'—')+'</div>';
+    html += '<div class="label">'+totals.length+' günlük kayıta göre</div></div>';
+
+    html += '<div class="section"><div class="section-title">Çıkarımlar</div>';
+    if(maxDay) html += '<div class="note" style="margin-top:0;">En yüksek kullanım: <b>'+trDate(maxDay.date)+'</b> — '+fmtTon(maxDay.total)+'</div>';
+    if(minDay && minDay!==maxDay) html += '<div class="note">En düşük kullanım: <b>'+trDate(minDay.date)+'</b> — '+fmtTon(minDay.total)+'</div>';
+    if(anomalyDays>0) html += '<div class="note" style="border-left-color:var(--rust);">'+anomalyDays+' günde sayım beklenenden yüksek çıktı (olası kayıtsız giriş) — aşağıdaki listede kırmızı işaretli.</div>';
+    html += '</div>';
+
+    html += '<div class="section"><div class="section-title">Günlük Kayıtlar</div><div class="ledger">';
+    days.slice(0,60).forEach(function(d){
+      html += '<div class="row"><div>';
+      html += '<div class="name">'+trDate(d.date)+'</div>';
+      var breakdown = d.rows.map(function(r){ return cardName(r.cardId)+': '+fmtTon(r.sarf); }).join(' · ');
+      html += '<div class="meta">'+breakdown+'</div>';
+      if(d.anomaly) html += '<div class="meta" style="color:var(--rust);">Bu günde bir veya daha fazla üründe sayım beklenenden yüksek çıktı.</div>';
+      html += '</div><div class="figs"><div class="ton">'+fmtTon(d.total)+'</div></div></div>';
+    });
+    html += '</div></div>';
+
+    document.getElementById('view').innerHTML = html;
+  }
+
+  // ---------- RENDER: STOK KIRILIMINA GÖRE YAPILMASI GEREKEN HARMAN ----------
+  function renderHarman(){
+    var cards = DB.cards;
+
+    var html = '<h2 class="page-title">Stoğa Göre Harman</h2>';
+    html += '<p class="page-sub">Fabrika\'daki güncel stok kırılımına göre bugün yakılması gereken harman.</p>';
+
+    if(!cards.length){
+      html += '<div class="empty">Önce "Ürünler" sekmesinden en az bir yakıt türü ekleyin.</div>';
+    } else {
+      if(blendTarget===null) blendTarget = defaultBlendTarget();
+      var blend = computeBlend(blendTarget);
+      html += '<div class="section"><div class="section-title">Bugün Yakılması Gereken Harman</div>';
+      html += '<div class="field"><label>Bugünkü planlanan toplam sarf hedefi (ton)</label>';
+      html += '<input type="number" step="0.1" min="0" id="blend-target-input" value="'+blendTarget+'"></div>';
+      html += '<div class="ledger">';
+      blend.rows.forEach(function(r){
+        html += '<div class="row"><div><div class="name">'+esc(r.name)+'</div>';
+        var parts = [];
+        if(r.fromFabrika>0) parts.push('Fabrika\'da hazır: '+fmtTon(r.fromFabrika));
+        if(r.fromStok2>0) parts.push('Stok2\'den çekilmeli: '+fmtTon(r.fromStok2));
+        if(r.short>0) parts.push('eksik: '+fmtTon(r.short));
+        if(r.kalan>0) parts.push('anlaşmadan gelecek: '+fmtTon(r.kalan));
+        if(parts.length) html += '<div class="meta">'+parts.join(' · ')+'</div>';
+        html += '</div><div class="figs"><div class="ton">'+fmtTon(r.ton)+'</div><div class="days">%'+Math.round(r.share*100)+'</div></div></div>';
+      });
+      html += '</div></div>';
+      html += '<div class="hero"><div class="label">Bu Harmanın Kalorifik Değeri</div>';
+      html += '<div class="big" style="font-size:32px;">'+fmtKcal(blend.kcal)+'</div></div>';
+      html += '<div class="note">Bu öneri, Fabrika + Stok2 toplam stok kırılımına, henüz teslim alınmamış anlaşma bakiyelerine (gelecekte gelecek miktar olarak), yakın zamandaki ortalama günlük sarfa göre otomatik hesaplanmıştır. Anlaşmasında hâlâ kalan miktar olan ürünler daha cömert paylandı — çünkü o ürünün stoğu yakın zamanda tazelenecek. Fabrika\'da hazır olmayan miktarların Stok2\'den çekilmesi gerekir (yukarıda ürün bazında belirtildi). Sahadaki gerçek duruma göre hedef sarf miktarını değiştirip anlık güncelleyebilirsiniz.</div>';
+
+      var palette = ['#B8862E','#8B4331','#56613F','#5B7A8B','#8B6F8B','#8B8331'];
+      var capacity = DB.fabrikaCapacity || 4000;
+      var fabTotal = fabrikaTotal();
+      var pctFull = capacity>0 ? Math.min(fabTotal/capacity*100,100) : 0;
+      var free = Math.max(capacity-fabTotal,0);
+
+      html += '<div class="hero" style="margin-top:24px;"><div class="label">Fabrika Stoğu</div>';
+      html += '<div class="big">'+fmtTon(fabTotal)+' <small>/ '+fmtTon(capacity)+'</small></div>';
+      html += '<div class="label">%'+Math.round(pctFull)+' dolu · '+fmtTon(free)+' boş alan</div>';
+      if(fabTotal>0){
+        html += '<div class="stackbar">';
+        cards.forEach(function(c,i){
+          var t = fabrikaStock(c.id);
+          var pct = fabTotal>0 ? (t/fabTotal*100) : 0;
+          if(pct<=0) return;
+          html += '<div class="seg" style="width:'+pct.toFixed(2)+'%;background:'+palette[i%palette.length]+';"></div>';
+        });
+        if(free>0){
+          html += '<div class="seg" style="width:'+(free/capacity*100).toFixed(2)+'%;background:rgba(255,255,255,0.12);"></div>';
+        }
+        html += '</div><div class="legend">';
+        cards.forEach(function(c,i){
+          var t = fabrikaStock(c.id);
+          if(t<=0) return;
+          html += '<span class="item"><span class="dot" style="background:'+palette[i%palette.length]+';"></span>'+esc(c.name)+' · '+fmtTon(t)+'</span>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+
+      var totalAvgSarf = cards.reduce(function(s,c){ return s+avgDailySarf(c.id,7,'fabrika'); }, 0);
+      html += '<div class="hero" style="padding:14px 16px;"><div class="label">Günlük Yakıt Bildirimi</div>';
+      if(totalAvgSarf>0){
+        var daysLeftAll = fabTotal/totalAvgSarf;
+        html += '<div class="big" style="font-size:28px;">~'+Math.round(daysLeftAll)+' gün</div>';
+        html += '<div class="label">Toplam '+fmtTon(fabTotal)+' yakıt, günlük ortalama '+fmtTon(totalAvgSarf)+' sarfa göre yaklaşık bu kadar yeter.</div>';
+      } else {
+        html += '<div class="label">Henüz günlük sarf verisi yok — "Fabrika Stok" sayfasından stok sayımı girildikçe burada kaç gün yakıt kaldığı hesaplanacak.</div>';
+      }
+      html += '</div>';
+
+      html += '<div class="section"><div class="section-title">Fabrika\'daki Yakıtlar</div>';
+      var fabCards = cards.filter(function(c){ return fabrikaStock(c.id)>0; });
+      if(!fabCards.length){
+        html += '<div class="empty">Fabrika\'da şu anda kayıtlı stok yok.</div>';
+      } else {
+        html += '<div class="ledger">';
+        fabCards.forEach(function(c){
+          var sf = fabrikaStock(c.id), s2 = stok2Stock(c.id);
+          var dRem = daysRemainingFabrika(c.id);
+          var flagClass = dRem===null ? 'unknown' : (dRem<5 ? 'low' : 'ok');
+          html += '<div class="row"><div>';
+          html += '<div class="name"><span class="flag '+flagClass+'"></span>'+esc(c.name)+'</div>';
+          html += '<div class="meta">'+fmtKcal(c.kcal)+(s2>0?' · diğer sahada yedek: '+fmtTon(s2):'')+'</div>';
+          html += '</div><div class="figs"><div class="ton">'+fmtTon(sf)+'</div>';
+          html += '<div class="days">'+(dRem===null?'kalan gün: —':'kalan ~'+Math.round(dRem)+' gün')+'</div></div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+
+      var transfer = computeTransferSuggestion();
+      html += '<div class="section"><div class="section-title">Fabrikaya Çekilmesi Gerekenler</div>';
+      if(transfer.free<=0){
+        html += '<div class="note">Fabrika kapasitesi dolu ('+fmtTon(transfer.fabTotal)+' / '+fmtTon(transfer.capacity)+'). Yer açılana kadar başka sahadan çekme önerilmiyor.</div>';
+      } else if(!transfer.rows.length){
+        html += '<div class="empty">Çekilecek yakıt yok — '+fmtTon(transfer.free)+' boş alan kullanılamıyor.</div>';
+      } else {
+        html += '<div class="note">Eldeki stok kırılımına göre ilerleyebilmek için fabrikaya şu ürünleri şuradan çekmelisin:</div>';
+        html += '<div class="ledger">';
+        transfer.rows.forEach(function(r){
+          html += '<div class="row"><div>';
+          html += '<div class="name">'+esc(r.name)+'</div>';
+          html += '<div class="meta">'+fmtKcal(r.kcal)+' · çekildikten sonra diğer sahada kalan: '+fmtTon(r.kalanStok2)+'</div>';
+          html += '</div><div class="figs"><div class="ton">'+fmtTon(r.take)+'</div></div></div>';
+        });
+        html += '</div>';
+        if(transfer.unused>0){
+          html += '<div class="note">'+fmtTon(transfer.unused)+' boş alan için uygun yakıt kalmadı.</div>';
+        }
+        var beforeKcal = 0;
+        if(transfer.fabTotal>0){
+          beforeKcal = cards.reduce(function(s,c){ return s+fabrikaStock(c.id)*c.kcal; },0)/transfer.fabTotal;
+        }
+        var afterTotal = transfer.fabTotal + transfer.rows.reduce(function(s,r){return s+r.take;},0);
+        var afterKcalSum = cards.reduce(function(s,c){ return s+fabrikaStock(c.id)*c.kcal; },0) + transfer.rows.reduce(function(s,r){return s+r.take*r.kcal;},0);
+        var afterKcal = afterTotal>0 ? afterKcalSum/afterTotal : 0;
+        html += '<div class="note">Bu çekme yapılırsa Fabrika '+fmtTon(afterTotal)+' ile dolar; ortalama karışım kalorisi '+(transfer.fabTotal>0?fmtKcal(beforeKcal)+' → ':'')+fmtKcal(afterKcal)+' olur. Öncelik en yüksek kalorifik değere göre sıralanmıştır — sahadaki ihtiyaca göre elle değiştirin.</div>';
+      }
+      html += '</div>';
+    }
+
+    document.getElementById('view').innerHTML = html;
+  }
+
+  // ---------- RENDER: ANLAŞMALAR ----------
+  function renderGiris(){
+    var editing = editingAgreementId ? DB.planned.filter(function(p){return p.id===editingAgreementId;})[0] : null;
+    var html = '<h2 class="page-title">Anlaşmalar</h2><p class="page-sub">Tedarikçi anlaşmalarını buradan yönetin — gelen/kalan miktar otomatik takip edilir.</p>';
+
+    if(!DB.cards.length){
+      html += '<div class="empty">Önce "Ürünler" sekmesinden en az bir yakıt türü ekleyin.</div>';
+    } else {
+      var eIds = editing ? agreementCardIds(editing) : [];
+      html += '<div class="entry-card"><div class="title">'+(editing?'Anlaşmayı Düzenle':'Yeni Anlaşma / Planlı Giriş Ekle')+'</div>';
+      html += '<div class="row2">';
+      html += '<div class="field"><label>Ürün</label><select id="pl-card-1">';
+      DB.cards.forEach(function(c){ html += '<option value="'+c.id+'"'+(eIds[0]===c.id?' selected':'')+'>'+esc(c.name)+'</option>'; });
+      html += '</select></div>';
+      html += '<div class="field"><label>2. Ürün (opsiyonel)</label><select id="pl-card-2"><option value="">Yok</option>';
+      DB.cards.forEach(function(c){ html += '<option value="'+c.id+'"'+(eIds[1]===c.id?' selected':'')+'>'+esc(c.name)+'</option>'; });
+      html += '</select></div>';
+      html += '</div>';
+      html += '<div class="field"><label>Tedarikçi / Firma (opsiyonel)</label><input type="text" id="pl-firma" value="'+esc(editing?editing.firma||'':'')+'" placeholder="örn. Paşa Geri Dönüşüm Enerji"></div>';
+      html += '<div class="row2">';
+      html += '<div class="field"><label>Toplam Anlaşma Miktarı (ton)</label><input type="number" step="0.1" min="0" id="pl-qty" value="'+(editing?editing.qty:'')+'" placeholder="0"></div>';
+      html += '<div class="field"><label>Anlaşma Tarihi (opsiyonel)</label><input type="date" id="pl-date" value="'+(editing?(editing.date||''):'')+'"></div>';
+      html += '</div>';
+      html += '<div class="field"><label>Not (opsiyonel)</label><input type="text" id="pl-note" value="'+esc(editing?editing.note||'':'')+'" placeholder="Sözleşme no, koşullar, vb."></div>';
+      html += '<div class="row2">';
+      html += '<button class="btn btn-primary" style="flex:1;" id="pl-add-btn">'+(editing?'Güncelle':'Ekle')+'</button>';
+      if(editing) html += '<button class="btn btn-ghost" style="flex:1;" id="pl-cancel-edit-btn">Vazgeç</button>';
+      html += '</div>';
+      html += '<div class="note">Anlaşma tarihi girdiğinizde, o tarihten sonra seçtiğiniz ürün(ler) için kaydedilen tüm girişler (kantar dahil) otomatik toplanıp "gelen" olarak gösterilir; kalan miktar buradan hesaplanır. Birden fazla ürün seçerseniz, toplam anlaşma miktarı bu ürünlerin girişleri toplamına göre takip edilir — hangi teslimatın hangi ürüne ait olduğu kantar/sayım kaydından otomatik ayrışır. Firma girerseniz, sadece o firmadan gelen girişler sayılır. Anlaşma Stok2 veya Fabrika ayrımı yapmaz — hangi sahaya girerse girsin takip edilir.</div>';
+      html += '</div>';
+    }
+
+    var list = DB.planned.slice().sort(function(a,b){ return (a.date||'')<(b.date||'')?-1:1; });
+    html += '<div class="section" style="margin-top:20px;"><div class="section-title">Anlaşmalar ('+list.length+')</div>';
+    if(!list.length){
+      html += '<div class="empty">Kayıtlı bir anlaşma yok.</div>';
+    } else {
+      html += '<div class="ledger">';
+      list.forEach(function(p){
+        var gelen = agreementReceived(p);
+        var kalan = Math.max(p.qty-gelen,0);
+        var pct = p.qty>0 ? Math.min(gelen/p.qty*100,100) : 0;
+        var done = p.qty>0 && gelen>=p.qty;
+        html += '<div class="row" style="flex-direction:column;align-items:stretch;">';
+        html += '<div style="display:flex;justify-content:space-between;gap:10px;">';
+        html += '<div><div class="name">'+esc(agreementCardLabel(p))+(p.firma?' — '+esc(p.firma):'')+'</div>';
+        html += '<div class="meta">'+(p.date?('Anlaşma tarihi: '+p.date):'Tarih belirsiz')+(p.note?' · '+esc(p.note):'')+'</div></div>';
+        html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+        html += '<button class="btn btn-ghost" data-edit-planned="'+p.id+'" style="padding:5px 9px;font-size:11.5px;">Düzenle</button>';
+        html += '<button class="btn btn-danger" data-cancel-planned="'+p.id+'" style="padding:5px 9px;font-size:11.5px;">İptal Et</button>';
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="stackbar" style="background:var(--line);margin-top:8px;"><div class="seg" style="width:'+pct.toFixed(1)+'%;background:'+(done?'var(--moss)':'var(--ochre)')+';"></div></div>';
+        html += '<div class="meta" style="margin-top:4px;">Toplam: '+fmtTon(p.qty)+' · Gelen: '+fmtTon(gelen)+' · Kalan: '+fmtTon(kalan);
+        if(done) html += ' · <b style="color:var(--moss);">Tamamlandı</b>';
+        html += '</div>';
+        if(kalan > (DB.fabrikaCapacity||4000)) html += '<div class="meta" style="color:var(--rust);">Kalan miktar Fabrika kapasitesinden büyük — kademeli teslimat gerekir.</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+
+    document.getElementById('view').innerHTML = html;
+  }
+
+  // ---------- RENDER: STOK KARTLARI ----------
+  function renderKartlar(){
+    var html = '<h2 class="page-title">Ürünler</h2><p class="page-sub">Yakıt türlerini ve kalorifik değerlerini (kcal/kg) burada tanımlayın.</p>';
+
+    if(!DB.cards.length){
+      html += '<div class="empty">Henüz kart yok.</div>';
+    } else {
+      html += '<div class="ledger">';
+      DB.cards.forEach(function(c){
+        html += '<div class="card-row"><div class="txt">';
+        html += '<input type="text" data-card-name="'+c.id+'" value="'+esc(c.name)+'" style="border:none;background:none;font-weight:600;font-size:14px;width:100%;padding:2px 0;font-family:inherit;color:inherit;">';
+        html += '<span class="small">Stok2: '+fmtTon(DB.levels.stok2[c.id]||0)+' · Fabrika: '+fmtTon(DB.levels.fabrika[c.id]||0)+'</span>';
+        html += '</div>';
+        html += '<input type="number" data-card-kcal="'+c.id+'" value="'+c.kcal+'" style="width:80px;border:1px solid var(--line-strong);border-radius:2px;padding:6px;text-align:right;">';
+        html += '<button class="btn btn-ghost" data-save-card="'+c.id+'" style="padding:6px 8px;font-size:11.5px;">Kaydet</button>';
+        html += '<button class="btn btn-danger" data-del-card="'+c.id+'" style="padding:6px 8px;font-size:11.5px;">Sil</button>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    html += '<div class="entry-card" style="margin-top:18px;"><div class="title">Yeni Kart Ekle</div>';
+    html += '<div class="row2">';
+    html += '<div class="field"><label>Yakıt Adı</label><input type="text" id="new-card-name" placeholder="örn. Pamuk Sapı"></div>';
+    html += '<div class="field"><label>Kalori (kcal/kg)</label><input type="number" id="new-card-kcal" placeholder="örn. 3500"></div>';
+    html += '</div>';
+    html += '<button class="btn btn-primary btn-block" id="add-card-btn">Kart Ekle</button></div>';
+
+    document.getElementById('view').innerHTML = html;
+  }
+
+  // ---------- RENDER: GEÇMİŞ ----------
+  function renderGecmis(){
+    var html = '<h2 class="page-title">Değişiklik Geçmişi</h2><p class="page-sub">Kim, ne zaman, ne değiştirdi.</p>';
+
+    html += '<button class="btn btn-ghost btn-block" id="export-excel-btn">Excel\'e Aktar</button>';
+
+    html += '<div class="section" style="margin-top:20px;"><div class="section-title">Kayıtlar</div>';
+    if(!DB.changes.length){
+      html += '<div class="empty">Henüz kayıtlı bir değişiklik yok.</div>';
+    } else {
+      html += '<div>';
+      DB.changes.slice(0,150).forEach(function(ch){
+        html += '<div class="change-row"><div class="ts">'+nowLabel(ch.ts)+' · <span class="user">'+esc(ch.user)+'</span></div>';
+        html += '<div>'+esc(ch.text)+'</div></div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+    document.getElementById('view').innerHTML = html;
+  }
+
+  // ---------- RENDER: KULLANICILAR ----------
+  function renderKullanicilar(){
+    var html = '<h2 class="page-title">Kullanıcılar</h2><p class="page-sub">Uygulamaya girebilecek e-postaları buradan yönetin.</p>';
+
+    html += '<div class="note" style="margin-top:0;">Sadece buradaki listede olan e-postalar (doğru şifreyle birlikte) uygulamaya girebilir. Bu bir tarayıcı-içi kontroldür, gerçek bir sunucu doğrulaması değildir — hassas veri için tek koruma katmanı olarak güvenilmemelidir.</div>';
+
+    html += '<div class="entry-card"><div class="title">Yeni Kullanıcı Ekle</div>';
+    html += '<div class="row2">';
+    html += '<input type="email" id="new-user-email" placeholder="yeni@sirket.com" style="flex:2;border:1px solid var(--line-strong);border-radius:2px;padding:9px 10px;">';
+    html += '<button class="btn btn-primary" id="add-user-btn" style="flex:1;">Ekle</button>';
+    html += '</div></div>';
+
+    html += '<div class="entry-card"><div class="title">Toplu Ekle</div>';
+    html += '<div class="field"><label>Her satıra bir e-posta yapıştırın</label>';
+    html += '<textarea id="bulk-user-emails" rows="6" placeholder="ornek1@sirket.com&#10;ornek2@sirket.com" style="width:100%;border:1px solid var(--line-strong);border-radius:2px;padding:9px 10px;font-family:inherit;font-size:14.5px;resize:vertical;"></textarea></div>';
+    html += '<button class="btn btn-primary btn-block" id="bulk-add-user-btn">Hepsini Ekle</button>';
+    html += '</div>';
+
+    html += '<div class="section" style="margin-top:20px;"><div class="section-title">Yetkili Kullanıcılar ('+((DB.approvedUsers||[]).length)+')</div>';
+    if(!DB.approvedUsers || !DB.approvedUsers.length){
+      html += '<div class="empty">Henüz kimse onaylanmadı — ilk giren kişi otomatik olarak eklenir.</div>';
+    } else {
+      html += '<div class="ledger">';
+      DB.approvedUsers.forEach(function(u){
+        html += '<div class="row"><div><div class="name">'+esc(u.email)+'</div>';
+        html += '<div class="meta">ekleyen: '+esc(u.addedBy)+'</div></div>';
+        html += '<div class="figs"><button class="btn btn-danger" data-remove-user="'+esc(u.email)+'" style="padding:5px 9px;font-size:11.5px;">Kaldır</button></div></div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+
+    document.getElementById('view').innerHTML = html;
+  }
+
+  // ---------- RENDER: ASİSTAN ----------
+  function renderAsistan(){
+    var html = '<h2 class="page-title">Asistan</h2><p class="page-sub">Uygulamayı nasıl kullanacağınızı anlatır, sorularınızı yanıtlar.</p>';
+
+    html += '<div class="entry-card"><div class="title">Hızlı Rehber</div>';
+    html += '<div class="note" style="margin-top:0;"><b>Günlük rutin:</b> Her sabah önce <b>Kantar Girişi</b> sekmesinden dünün kantar dökümünü yükleyin, sonra <b>Fabrika Stok</b> sekmesinde (Fabrika seçili, dün tarihiyle) gördüğünüz miktarları girin — günlük nihai kullanım otomatik hesaplanır.</div>';
+    html += '<div class="note"><b>Kantar Girişi:</b> Kantar dökümünü (.xlsx) buradan yükleyin. Yüklenmemiş günler varsa burada kırmızı yazıyla uyarılırsınız.</div>';
+    html += '<div class="note"><b>Fabrika Stok:</b> Sahada fiilen görülen stok miktarını günlük olarak buraya girin.</div>';
+    html += '<div class="note"><b>Anlaşmalar:</b> Tedarikçi anlaşmalarını (firma, tarih, toplam miktar, birden fazla ürün seçilebilir) kaydedin; gelen/kalan miktar otomatik takip edilir.</div>';
+    html += '<div class="note"><b>Stoğa Göre Harman:</b> Fabrika\'nın doluluğu, kaç gün yakıt kaldığı, hangi ürünlerin başka sahadan çekilmesi gerektiği ve bugün yakılması gereken harman burada.</div>';
+    html += '<div class="note"><b>Ürünler:</b> Yakıt türlerini ve kalorifik değerlerini (kcal/kg) burada tanımlayın.</div>';
+    html += '<div class="note"><b>Özet:</b> Stok sayımlarından hesaplanan günlük nihai kullanım geçmişi ve kısa çıkarımlar (ortalama, en yüksek/düşük gün, anomali uyarıları) burada.</div>';
+    html += '<div class="note" style="margin-bottom:0;"><b>Geçmiş:</b> Kim, ne zaman, ne değiştirdi — tüm kayıt.</div>';
+    html += '</div>';
+
+
+    html += '<div class="entry-card"><div class="title">Soru Sor</div>';
+    html += '<div class="chat-log" id="chat-log">';
+    if(!chatHistory.length){
+      html += '<div class="chat-typing">Örn: "Anlaşma nasıl eklerim?", "Sarf nasıl hesaplanıyor?", "Fabrika kapasitesini nereden değiştiririm?"</div>';
+    } else {
+      chatHistory.forEach(function(m){
+        html += '<div class="chat-bubble '+(m.role==='user'?'user':'assistant')+'">'+esc(m.content)+'</div>';
+      });
+    }
+    if(asistanLoading) html += '<div class="chat-typing">Yazıyor…</div>';
+    html += '</div>';
+    html += '<div class="chat-input-row"><input type="text" id="chat-input" placeholder="Sorunuzu yazın…" autocomplete="off"'+(asistanLoading?' disabled':'')+'><button class="btn btn-primary" id="chat-send-btn"'+(asistanLoading?' disabled':'')+'>Gönder</button></div>';
+    html += '</div>';
+
+    document.getElementById('view').innerHTML = html;
+    var log = document.getElementById('chat-log');
+    if(log) log.scrollTop = log.scrollHeight;
+  }
+
+  async function handleAsistanSend(){
+    var inp = document.getElementById('chat-input');
+    if(!inp) return;
+    var text = inp.value.trim();
+    if(!text || asistanLoading) return;
+    chatHistory.push({role:'user', content:text});
+    asistanLoading = true;
+    render();
+    try{
+      var res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model:'claude-sonnet-4-6',
+          max_tokens: 700,
+          system: ASISTAN_SYSTEM_PROMPT,
+          messages: chatHistory.map(function(m){ return {role:m.role, content:m.content}; })
+        })
+      });
+      var data = await res.json();
+      var textOut = (data && data.content ? data.content : []).map(function(b){ return b.text||''; }).join('\n').trim();
+      chatHistory.push({role:'assistant', content: textOut || 'Yanıt alınamadı, tekrar deneyin.'});
+    }catch(err){
+      chatHistory.push({role:'assistant', content:'Bağlantı hatası oluştu, tekrar deneyin.'});
+    }
+    asistanLoading = false;
+    render();
+  }
+
+  var RENDERERS = {ozet:renderOzet, giris:renderGiris, kantar:renderKantarGirisi, onsaha:renderOnSaha, harman:renderHarman, kartlar:renderKartlar, gecmis:renderGecmis, asistan:renderAsistan, kullanicilar:renderKullanicilar};
+
+  function render(){
+    document.getElementById('user-label').textContent = 'Kullanıcı: ' + currentUser;
+    Array.prototype.forEach.call(document.querySelectorAll('.tabbar button'), function(b){
+      b.classList.toggle('active', b.getAttribute('data-tab')===activeTab);
+    });
+    RENDERERS[activeTab]();
+  }
+
+  // ---------- EVENTS ----------
+  document.getElementById('tabbar').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-tab]');
+    if(!btn) return;
+    activeTab = btn.getAttribute('data-tab');
+    render();
+  });
+
+  document.getElementById('refresh-btn').addEventListener('click', async function(){
+    document.getElementById('refresh-btn').textContent = '…';
+    DB = await loadDB();
+    document.getElementById('refresh-btn').textContent = 'Yenile';
+    render();
+    toast('Güncellendi');
+  });
+
+  document.getElementById('view').addEventListener('click', async function(e){
+    var t = e.target;
+
+    // approved users: add
+    if(t.id==='add-user-btn'){
+      var newEmail = document.getElementById('new-user-email').value.trim();
+      if(!newEmail || newEmail.indexOf('@')<0){ toast('Geçerli bir e-posta girin'); return; }
+      DB.approvedUsers = DB.approvedUsers || [];
+      if(DB.approvedUsers.some(function(u){return u.email.toLowerCase()===newEmail.toLowerCase();})){
+        toast('Bu e-posta zaten listede');
+        return;
+      }
+      DB.approvedUsers.push({email:newEmail, addedBy:currentUser, addedAt:Date.now()});
+      logChange('Onaylı kullanıcı eklendi: '+newEmail);
+      await saveDB();
+      toast('Eklendi');
+      render();
+      return;
+    }
+
+    // approved users: bulk add
+    if(t.id==='bulk-add-user-btn'){
+      var raw = document.getElementById('bulk-user-emails').value;
+      var candidates = raw.split(/[\n,;]+/).map(function(s){return s.trim();}).filter(Boolean);
+      if(!candidates.length){ toast('En az bir e-posta girin'); return; }
+      DB.approvedUsers = DB.approvedUsers || [];
+      var added = [], skipped = [];
+      candidates.forEach(function(em){
+        if(em.indexOf('@')<0){ skipped.push(em); return; }
+        if(DB.approvedUsers.some(function(u){return u.email.toLowerCase()===em.toLowerCase();})){ skipped.push(em); return; }
+        DB.approvedUsers.push({email:em, addedBy:currentUser, addedAt:Date.now()});
+        added.push(em);
+      });
+      if(added.length){
+        logChange('Toplu kullanıcı eklendi: '+added.join(', '));
+        await saveDB();
+      }
+      toast(added.length+' eklendi'+(skipped.length?', '+skipped.length+' atlandı (geçersiz/zaten kayıtlı)':''));
+      render();
+      return;
+    }
+
+    // approved users: remove
+    var rmUser = t.closest('button[data-remove-user]');
+    if(rmUser){
+      var rmEmail = rmUser.getAttribute('data-remove-user');
+      if(confirm('"'+rmEmail+'" adresini onaylı kullanıcı listesinden kaldırmak istediğinize emin misiniz?')){
+        DB.approvedUsers = DB.approvedUsers.filter(function(u){return u.email!==rmEmail;});
+        logChange('Onaylı kullanıcı kaldırıldı: '+rmEmail);
+        await saveDB();
+        toast('Kaldırıldı');
+        render();
+      }
+      return;
+    }
+
+    // export to excel
+    if(t.id==='export-excel-btn'){
+      exportToExcel();
+      return;
+    }
+
+    // kantar: open file picker
+    if(t.id==='kantar-upload-btn'){
+      document.getElementById('kantar-file-input').click();
+      return;
+    }
+
+    // kantar: cancel pending import
+    if(t.id==='kantar-cancel-btn'){
+      kantarPending = null;
+      render();
+      return;
+    }
+
+    // kantar: commit pending import
+    if(t.id==='kantar-commit-btn'){
+      var selects = document.querySelectorAll('select[data-kantar-map]');
+      var newCardsCreated = [];
+      selects.forEach(function(sel){
+        var malKodu = sel.getAttribute('data-kantar-map');
+        var val = sel.value;
+        if(!val) return;
+        if(val==='__new__'){
+          var u = kantarPending.unmapped.filter(function(x){return x.malKodu===malKodu;})[0];
+          var malAd = u ? u.malAd : malKodu;
+          var nid = uid();
+          DB.cards.push({id:nid, name:malAd, kcal:0});
+          DB.levels.stok2[nid]=0; DB.levels.fabrika[nid]=0;
+          DB.kantarMap[malKodu] = nid;
+          newCardsCreated.push(malAd);
+        } else {
+          DB.kantarMap[malKodu] = val;
+        }
+      });
+      var stillUnmapped = kantarPending.unmapped.filter(function(u){ return !DB.kantarMap[u.malKodu]; });
+      if(stillUnmapped.length){ toast('Lütfen tüm ürünleri eşleştirin'); return; }
+
+      var girisCount=0, transferCount=0, girisTon=0, transferTon=0;
+      kantarPending.giris.forEach(function(it){
+        var cid = DB.kantarMap[it.malKodu];
+        var before = DB.levels[it.hedef][cid]||0;
+        DB.levels[it.hedef][cid] = before + it.ton;
+        DB.log.push({id:uid(), date:it.date, location:it.hedef, cardId:cid, giris:it.ton, sayim:null, sarf:0, oncekiSeviye:before, user:currentUser, ts:Date.now(), source:'kantar', fisNo:it.fisKey, firma:it.firma});
+        DB.importedFisNos.push(it.fisKey);
+        girisCount++; girisTon+=it.ton;
+      });
+      kantarPending.transfer.forEach(function(it){
+        var cid = DB.kantarMap[it.malKodu];
+        var beforeS2 = DB.levels.stok2[cid]||0, beforeFab = DB.levels.fabrika[cid]||0;
+        DB.levels.stok2[cid] = Math.max(0, beforeS2 - it.ton);
+        DB.levels.fabrika[cid] = beforeFab + it.ton;
+        DB.transfers.push({id:uid(), date:it.date, cardId:cid, ton:it.ton, user:currentUser, ts:Date.now(), fisNo:it.fisKey});
+        DB.log.push({id:uid(), date:it.date, location:'fabrika', cardId:cid, giris:it.ton, sayim:null, sarf:0, oncekiSeviye:beforeFab, user:currentUser, ts:Date.now(), source:'kantar-transfer', fisNo:it.fisKey, firma:it.firma});
+        DB.importedFisNos.push(it.fisKey);
+        transferCount++; transferTon+=it.ton;
+      });
+      if(DB.importedFisNos.length>4000) DB.importedFisNos = DB.importedFisNos.slice(DB.importedFisNos.length-4000);
+      if(DB.transfers.length>500) DB.transfers = DB.transfers.slice(DB.transfers.length-500);
+
+      var note = 'Kantar fişi içe aktarıldı ('+kantarPending.fileName+'): '+girisCount+' dış giriş ('+fmtTon(girisTon)+'), '+transferCount+' Stok2→Fabrika transfer ('+fmtTon(transferTon)+')';
+      if(newCardsCreated.length) note += '. Yeni kart(lar): '+newCardsCreated.join(', ')+' (kalori değerini Ürünler sayfasından girin)';
+      logChange(note);
+      kantarPending = null;
+      await saveDB();
+      toast('İçe aktarıldı');
+      render();
+      return;
+    }
+
+    // location tabs (giriş sayfası)
+    var locBtn = t.closest('button[data-loc]');
+    if(locBtn){
+      selLoc = locBtn.getAttribute('data-loc');
+      render();
+      return;
+    }
+
+    // asistan: send chat message
+    if(t.id==='chat-send-btn'){
+      handleAsistanSend();
+      return;
+    }
+
+    // quick date buttons
+    var qd = t.closest('button[data-quickdate]');
+    if(qd){
+      selDate = qd.getAttribute('data-quickdate')==='yesterday' ? yesterdayISO() : todayISO();
+      render();
+      return;
+    }
+
+    // save entries
+    if(t.id==='save-entries-btn'){
+      var date = document.getElementById('entry-date').value || todayISO();
+      selDate = date;
+      var inputs = document.querySelectorAll('#view input[data-card]');
+      var saved = 0;
+      var byCard = {};
+      inputs.forEach(function(inp){
+        var cid = inp.getAttribute('data-card'), kind = inp.getAttribute('data-kind');
+        byCard[cid] = byCard[cid] || {giris:0, sayimRaw:''};
+        if(kind==='giris') byCard[cid].giris = parseFloat(inp.value)||0;
+        if(kind==='sayim') byCard[cid].sayimRaw = inp.value.trim();
+      });
+      Object.keys(byCard).forEach(function(cid){
+        var v = byCard[cid];
+        var hasSayim = v.sayimRaw !== '';
+        if(v.giris<=0 && !hasSayim) return;
+        var before = DB.levels[selLoc][cid]||0;
+        var afterGiris = before + v.giris;
+        var sayim = hasSayim ? parseFloat(v.sayimRaw)||0 : null;
+        var sarf = hasSayim ? (afterGiris - sayim) : 0;
+        DB.levels[selLoc][cid] = hasSayim ? sayim : afterGiris;
+        DB.log.push({id:uid(), date:date, location:selLoc, cardId:cid, giris:v.giris, sayim:sayim, sarf:sarf, oncekiSeviye:before, user:currentUser, ts:Date.now()});
+        var parts = [];
+        if(v.giris>0) parts.push('+'+v.giris+'t giriş');
+        if(hasSayim) parts.push('sayım '+sayim+'t (hesaplanan sarf: '+sarf+'t)');
+        logChange(LOC_LABEL[selLoc]+' — '+cardName(cid)+': '+parts.join(', ')+' ('+date+')');
+        saved++;
+      });
+      if(!saved){ toast('En az bir miktar girin'); return; }
+      await saveDB();
+      toast('Kaydedildi ('+saved+' kalem)');
+      render();
+      return;
+    }
+
+    // delete entry
+    var delEntry = t.closest('button[data-del-entry]');
+    if(delEntry){
+      var eid = delEntry.getAttribute('data-del-entry');
+      var entry = DB.log.filter(function(x){return x.id===eid;})[0];
+      if(entry){
+        DB.levels[entry.location][entry.cardId] = entry.oncekiSeviye!==undefined ? entry.oncekiSeviye : ((DB.levels[entry.location][entry.cardId]||0) - entry.giris + entry.sarf);
+        DB.log = DB.log.filter(function(x){return x.id!==eid;});
+        logChange(LOC_LABEL[entry.location]+' — '+cardName(entry.cardId)+' kaydı silindi ('+entry.date+', +'+entry.giris+'t/-'+entry.sarf+'t)');
+        await saveDB();
+        toast('Kayıt silindi');
+        render();
+      }
+      return;
+    }
+
+    // planned: add or update
+    if(t.id==='pl-add-btn'){
+      var c1 = document.getElementById('pl-card-1').value;
+      var c2 = document.getElementById('pl-card-2').value;
+      var cids = c2 && c2!==c1 ? [c1,c2] : [c1];
+      var firma = document.getElementById('pl-firma').value.trim();
+      var qty = parseFloat(document.getElementById('pl-qty').value)||0;
+      var pdate = document.getElementById('pl-date').value || '';
+      var note = document.getElementById('pl-note').value.trim();
+      if(qty<=0){ toast('Miktar girin'); return; }
+      if(editingAgreementId){
+        var p = DB.planned.filter(function(x){return x.id===editingAgreementId;})[0];
+        if(p){
+          p.cardIds = cids; p.firma = firma; p.qty = qty; p.date = pdate; p.note = note;
+          logChange('Anlaşma güncellendi: '+fmtTon(qty)+' '+cids.map(cardName).join(' + ')+(firma?' — '+firma:'')+' ('+(pdate||'tarih belirsiz')+')');
+        }
+        editingAgreementId = null;
+        await saveDB();
+        toast('Güncellendi');
+        render();
+        return;
+      }
+      DB.planned.push({id:uid(), cardIds:cids, firma:firma, qty:qty, date:pdate, note:note, user:currentUser, ts:Date.now()});
+      logChange('Anlaşma eklendi: '+fmtTon(qty)+' '+cids.map(cardName).join(' + ')+(firma?' — '+firma:'')+' ('+(pdate||'tarih belirsiz')+')');
+      await saveDB();
+      toast('Eklendi');
+      render();
+      return;
+    }
+
+    // planned: start edit
+    var editBtn = t.closest('button[data-edit-planned]');
+    if(editBtn){
+      editingAgreementId = editBtn.getAttribute('data-edit-planned');
+      render();
+      return;
+    }
+
+    // planned: cancel edit
+    if(t.id==='pl-cancel-edit-btn'){
+      editingAgreementId = null;
+      render();
+      return;
+    }
+
+    // planned: cancel
+    var canc = t.closest('button[data-cancel-planned]');
+    if(canc){
+      var cid2 = canc.getAttribute('data-cancel-planned');
+      var p2 = DB.planned.filter(function(x){return x.id===cid2;})[0];
+      if(p2 && confirm('Bu anlaşmayı iptal etmek istediğinize emin misiniz?')){
+        DB.planned = DB.planned.filter(function(x){return x.id!==cid2;});
+        if(editingAgreementId===cid2) editingAgreementId = null;
+        logChange('Anlaşma iptal edildi: '+fmtTon(p2.qty)+' '+agreementCardLabel(p2)+(p2.firma?' — '+p2.firma:''));
+        await saveDB();
+        toast('İptal edildi');
+        render();
+      }
+      return;
+    }
+
+    // card: save edit
+    var saveCard = t.closest('button[data-save-card]');
+    if(saveCard){
+      var scid = saveCard.getAttribute('data-save-card');
+      var nameInp = document.querySelector('input[data-card-name="'+scid+'"]');
+      var kcalInp = document.querySelector('input[data-card-kcal="'+scid+'"]');
+      var card = DB.cards.filter(function(x){return x.id===scid;})[0];
+      if(card){
+        var newName = nameInp.value.trim() || card.name;
+        var newKcal = parseFloat(kcalInp.value)||0;
+        var oldName = card.name, oldKcal = card.kcal;
+        card.name = newName; card.kcal = newKcal;
+        if(oldName!==newName || oldKcal!==newKcal){
+          logChange('Stok kartı güncellendi: "'+oldName+'" ('+oldKcal+' kcal/kg) → "'+newName+'" ('+newKcal+' kcal/kg)');
+          await saveDB();
+          toast('Kart güncellendi');
+          render();
+        }
+      }
+      return;
+    }
+
+    // card: delete
+    var delCard = t.closest('button[data-del-card]');
+    if(delCard){
+      var dcid = delCard.getAttribute('data-del-card');
+      var dc = DB.cards.filter(function(x){return x.id===dcid;})[0];
+      if(dc && confirm('"'+dc.name+'" kartını silmek istediğinize emin misiniz? Geçmiş kayıtlar etkilenmez.')){
+        DB.cards = DB.cards.filter(function(x){return x.id!==dcid;});
+        delete DB.levels.stok2[dcid];
+        delete DB.levels.fabrika[dcid];
+        logChange('Stok kartı silindi: "'+dc.name+'"');
+        await saveDB();
+        toast('Silindi');
+        render();
+      }
+      return;
+    }
+
+    // card: add
+    if(t.id==='add-card-btn'){
+      var nname = document.getElementById('new-card-name').value.trim();
+      var nkcal = parseFloat(document.getElementById('new-card-kcal').value)||0;
+      if(!nname){ toast('Yakıt adı girin'); return; }
+      var nid = uid();
+      DB.cards.push({id:nid, name:nname, kcal:nkcal});
+      DB.levels.stok2[nid]=0; DB.levels.fabrika[nid]=0;
+      logChange('Yeni stok kartı eklendi: "'+nname+'" ('+nkcal+' kcal/kg)');
+      await saveDB();
+      toast('Kart eklendi');
+      render();
+      return;
+    }
+  });
+
+  document.getElementById('view').addEventListener('keydown', function(e){
+    if(e.target.id==='chat-input' && e.key==='Enter'){
+      e.preventDefault();
+      handleAsistanSend();
+    }
+  });
+
+  document.getElementById('view').addEventListener('change', function(e){
+    if(e.target.id==='entry-date'){
+      selDate = e.target.value;
+      render();
+    }
+    if(e.target.id==='blend-target-input'){
+      var v = parseFloat(e.target.value);
+      blendTarget = (v && v>0) ? v : 0;
+      render();
+    }
+  });
+
+  document.getElementById('view').addEventListener('change', async function(e){
+    if(e.target.id==='kantar-file-input'){
+      var f = e.target.files && e.target.files[0];
+      handleKantarFile(f);
+      return;
+    }
+    if(e.target.id==='capacity-input'){
+      var cap = parseFloat(e.target.value);
+      if(cap>=0){
+        var old = DB.fabrikaCapacity;
+        DB.fabrikaCapacity = cap;
+        if(old!==cap){
+          logChange('Fabrika stoklanabilir kapasitesi güncellendi: '+fmtTon(old)+' → '+fmtTon(cap));
+          await saveDB();
+        }
+        render();
+      }
+    }
+  });
+
+  // ---------- INIT / GATE (e-posta + paylaşılan şifre) ----------
+  // NOT: Bu sadece bir tarayıcı-içi kontrol — gerçek bir sunucu doğrulaması yok.
+  // Şifre istemci tarafında (sayfa kaynağında) görünür durumda; teknik bilgisi
+  // olan biri bu kontrolü aşabilir. Amacı, ekip dışından yanlışlıkla erişimi
+  // engellemek ve kimin ne yaptığını kaydetmek; hassas veriye karşı gerçek bir
+  // güvenlik önlemi değildir.
+  var GATE_PASSWORD = 'hedef350ton';
+  function isApprovedEmail(email){
+    if(!DB.approvedUsers || !DB.approvedUsers.length) return true; // liste boşsa ilk giren kurucu olur
+    var e = email.trim().toLowerCase();
+    return DB.approvedUsers.some(function(u){ return u.email.toLowerCase()===e; });
+  }
+
+  async function init(){
+    document.getElementById('loading').style.display = 'none';
+    DB = await loadDB();
+
+    var savedEmail = null;
+    try{
+      var r = await window.storage.get('user-email', false);
+      if(r && r.value) savedEmail = r.value;
+    }catch(e){ /* henüz kayıtlı e-posta yok */ }
+
+    if(savedEmail && isApprovedEmail(savedEmail)){
+      currentUser = savedEmail;
+      await start();
+    } else if(savedEmail && !isApprovedEmail(savedEmail)){
+      showDenied(savedEmail);
+    } else {
+      document.getElementById('gate').style.display = 'flex';
+      document.getElementById('gate-input').focus();
+    }
+  }
+
+  function showDenied(email){
+    document.getElementById('gate').style.display = 'flex';
+    var d = document.getElementById('gate-denied');
+    d.textContent = '"'+email+'" onaylı kullanıcı listesinde değil. Erişim için onaylı bir kullanıcının sizi eklemesi gerekiyor.';
+    d.style.display = 'block';
+  }
+
+  document.getElementById('gate-btn').addEventListener('click', submitGate);
+  document.getElementById('gate-input').addEventListener('keydown', function(e){
+    if(e.key==='Enter') submitGate();
+  });
+  document.getElementById('gate-password').addEventListener('keydown', function(e){
+    if(e.key==='Enter') submitGate();
+  });
+
+  async function submitGate(){
+    var email = document.getElementById('gate-input').value.trim();
+    var password = document.getElementById('gate-password').value;
+    if(!email || email.indexOf('@')<0){ toast('Geçerli bir e-posta girin'); return; }
+    if(password!==GATE_PASSWORD){
+      var d0 = document.getElementById('gate-denied');
+      d0.textContent = 'Şifre yanlış.';
+      d0.style.display = 'block';
+      return;
+    }
+    if(!isApprovedEmail(email)){
+      showDenied(email);
+      return;
+    }
+    var wasEmpty = !DB.approvedUsers || !DB.approvedUsers.length;
+    currentUser = email;
+    try{ await window.storage.set('user-email', email, false); }catch(e){}
+    if(wasEmpty){
+      DB.approvedUsers = DB.approvedUsers || [];
+      DB.approvedUsers.push({email:email, addedBy:'sistem (ilk kullanıcı)', addedAt:Date.now()});
+      logChange('İlk kullanıcı olarak onaylandı: '+email);
+      await saveDB();
+    }
+    document.getElementById('gate-denied').style.display = 'none';
+    document.getElementById('gate').style.display = 'none';
+    await start();
+  }
+
+  document.getElementById('change-user-btn').addEventListener('click', async function(){
+    try{ await window.storage.delete('user-email', false); }catch(e){}
+    currentUser = null;
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('gate').style.display = 'flex';
+    document.getElementById('gate-input').value = '';
+    document.getElementById('gate-denied').style.display = 'none';
+    document.getElementById('gate-input').focus();
+  });
+
+  async function start(){
+    document.getElementById('app').style.display = 'flex';
+    render();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
