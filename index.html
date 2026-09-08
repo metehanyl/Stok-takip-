@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Stok Sahası">
 <meta name="mobile-web-app-capable" content="yes">
-<title>Stok Sahası — OMP · FBY Enerji</title>
+<title>OMP & FBY Enerji Stok Planlama</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -248,7 +248,7 @@
 <div id="loading">Yükleniyor…</div>
 
 <div id="gate" style="display:none;">
-  <div class="brand">STOK<span>·</span>SAHASI</div>
+  <div class="brand">STOK<span>·</span>PLANLAMA</div>
   <p>OMP &amp; FBY Enerji biyokütle yakıt stok takip ve harman planlama uygulaması. Devam etmek için e-posta adresinizi ve şifreyi girin — yaptığınız her değişiklik bu adresle kaydedilir.</p>
   <input type="email" id="gate-input" placeholder="ornek@sirket.com" autocomplete="email">
   <input type="password" id="gate-password" placeholder="Şifre" autocomplete="current-password">
@@ -258,7 +258,7 @@
 
 <div id="app" style="display:none;">
   <div class="topbar">
-    <div class="brand">STOK<span>·</span>SAHASI</div>
+    <div class="brand">STOK<span>·</span>PLANLAMA</div>
     <div class="sub">
       <span id="user-label"></span>
       <span style="display:flex;gap:8px;">
@@ -271,7 +271,7 @@
   <div class="tabbar" id="tabbar">
     <button data-tab="asistan">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v11H8l-4 4V4Z"/><path d="M8 9h8M8 12h5"/></svg>
-      Asistan
+      Giriş
     </button>
     <button data-tab="kantar">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v4M7 7h10M12 7l-5 9a5 5 0 0 0 10 0l-5-9Z"/><path d="M4 21h16"/></svg>
@@ -319,13 +319,12 @@
   var currentUser = null;
   var activeTab = 'asistan';
   var selDate = yesterdayISO();
+  var ozetStart = todayISO();
+  var ozetEnd = todayISO();
   var selLoc = 'fabrika';
   var blendTarget = null; // computed lazily
   var kantarPending = null; // parsed-but-not-yet-committed kantar import
   var editingAgreementId = null;
-  var chatHistory = [];
-  var asistanLoading = false;
-  var ASISTAN_SYSTEM_PROMPT = "Sen OMP & FBY Enerji biyokütle yakıt stok takip uygulamasının içindeki bir asistansın. Türkçe, kısa ve net cevap ver. Uygulama tanımı: "
     + "Bu uygulama, bir biyokütle enerji santralinin yakıt stoğunu iki sahada (Stok2: uzak/yedek depo, Fabrika: yakma sahası — üretim depo + üretim öncesi depo / ön saha) takip eder. "
     + "Sekmeler sırasıyla: (1) Kantar Girişi — kantar programından alınan .xlsx dökümü buradan yüklenir (Gittiği Yer 'STOK' içeriyorsa Stok2, değilse Fabrika'ya giriş sayılır; Geldiği Yer 'STOK-2' ise iç transferdir; ürün ilk kez görülürse bir kez eşleştirilir, sonra Mal Kodu ile hatırlanır; aynı fiş iki kez içe aktarılamaz). Daha önce kantar dökümü yüklenmiş ama sonradan atlanan günler burada kırmızı yazıyla uyarılır. "
     + "(2) Fabrika Stok — kullanıcı günlük olarak (varsayılan Fabrika, Stok2 de seçilebilir) 'Sahada Görülen Stok' (fiilen sayılan miktar) girer; uygulama önceki stok + (kantardan gelen giriş) − sayım = günlük nihai kullanım işlemini otomatik yapar. Sayım girilmezse hiçbir şey değişmez. "
@@ -563,11 +562,10 @@
     var cards = DB.cards;
     if(!cards.length) return {rows:[], kcal:0};
     var scored = cards.map(function(c){
-      var stock = totalStock(c.id);
-      var kalan = agreementsKalanForCard(c.id);
+      var stock = totalStock(c.id); // Fabrika + Stok2 toplamı
+      var kalan = agreementsKalanForCard(c.id); // bekleyen (henüz gelmemiş) anlaşma miktarı
       var dRem = daysRemaining(c.id);
-      var score = stock;
-      if(kalan>0) score *= 1.25;
+      var score = stock + kalan; // stok + bekleyen anlaşmalar yekünü
       if(dRem!==null && dRem<5 && kalan<=0) score *= 0.5;
       return {card:c, stock:stock, kalan:kalan, score:Math.max(score,0)};
     });
@@ -780,11 +778,12 @@
 
     if(kp.unmapped.length){
       html += '<div class="section" style="margin-top:10px;"><div class="section-title" style="font-size:14px;">Eşleşmeyen Ürünler ('+kp.unmapped.length+')</div>';
+      html += '<div class="note" style="margin-top:0;">Bu ürünler mevcut kartlardan hiçbirine karşılık gelmiyor — varsayılan olarak <b>yeni ürün kartı</b> oluşturulacak şekilde ayarlandı. Mevcut bir karta eşleştirmek isterseniz aşağıdan seçin.</div>';
       kp.unmapped.forEach(function(u){
         html += '<div class="field"><label>'+esc(u.malAd)+' · Mal Kodu: '+esc(u.malKodu)+'</label>';
-        html += '<select data-kantar-map="'+esc(u.malKodu)+'"><option value="">Hangi stok kartı?</option>';
+        html += '<select data-kantar-map="'+esc(u.malKodu)+'"><option value="">Mevcut karttan seçin (opsiyonel)</option>';
         DB.cards.forEach(function(c){ html += '<option value="'+c.id+'">'+esc(c.name)+'</option>'; });
-        html += '<option value="__new__">+ Yeni kart oluştur: "'+esc(u.malAd)+'"</option>';
+        html += '<option value="__new__" selected>+ Yeni kart oluştur: "'+esc(u.malAd)+'"</option>';
         html += '</select></div>';
       });
       html += '</div>';
@@ -922,11 +921,13 @@
   }
 
   // ---------- RENDER: ÖZET (Günlük Nihai Kullanım) ----------
-  function dailyUsageSummary(){
+  function dailyUsageSummary(startDate, endDate){
     var byDate = {};
     DB.log.forEach(function(e){
       if(e.location!=='fabrika') return;
       if(e.sayim===null || e.sayim===undefined) return;
+      if(startDate && e.date<startDate) return;
+      if(endDate && e.date>endDate) return;
       if(!byDate[e.date]) byDate[e.date] = {date:e.date, total:0, rows:[], anomaly:false};
       byDate[e.date].rows.push({cardId:e.cardId, sarf:e.sarf});
       if(e.sarf<0) byDate[e.date].anomaly = true;
@@ -935,46 +936,120 @@
     return Object.keys(byDate).map(function(k){ return byDate[k]; }).sort(function(a,b){ return a.date<b.date?1:-1; });
   }
 
-  function renderOzet(){
-    var html = '<h2 class="page-title">Özet — Günlük Nihai Kullanım</h2><p class="page-sub">Stok sayımlarından hesaplanan günlük nihai kullanım geçmişi.</p>';
-
-    var days = dailyUsageSummary();
-    if(!days.length){
-      html += '<div class="empty">Henüz stok sayımı girilmedi — "Fabrika Stok" sekmesinden sayım girildikçe burada günlük nihai kullanım görünecek.</div>';
-      document.getElementById('view').innerHTML = html;
-      return;
-    }
-
-    var totals = days.map(function(d){ return d.total; }).filter(function(t){ return t>0; });
-    var avg = totals.length ? totals.reduce(function(s,t){return s+t;},0)/totals.length : null;
-    var maxDay=null, minDay=null;
+  // Seçilen tarih aralığındaki fiili tüketim kırılımını (kart bazında toplam sarf),
+  // güncel ideal harman önerisiyle (computeBlend) karşılaştırır.
+  function blendComplianceForRange(days){
+    var actualByCard = {}, actualTotal = 0;
     days.forEach(function(d){
-      if(d.total<=0) return;
-      if(!maxDay || d.total>maxDay.total) maxDay=d;
-      if(!minDay || d.total<minDay.total) minDay=d;
+      d.rows.forEach(function(r){
+        if(r.sarf<=0) return;
+        actualByCard[r.cardId] = (actualByCard[r.cardId]||0) + r.sarf;
+        actualTotal += r.sarf;
+      });
     });
-    var anomalyDays = days.filter(function(d){ return d.anomaly; }).length;
+    var target = defaultBlendTarget();
+    var ideal = computeBlend(target);
+    var idealShare = {};
+    ideal.rows.forEach(function(r){ idealShare[r.id] = r.share; });
+    var rows = DB.cards.map(function(c){
+      var actShare = actualTotal>0 ? (actualByCard[c.id]||0)/actualTotal : 0;
+      var idShare = idealShare[c.id]||0;
+      var diff = actShare - idShare;
+      return {id:c.id, name:c.name, actShare:actShare, idealShare:idShare, diff:diff, actTon:actualByCard[c.id]||0};
+    }).filter(function(r){ return r.actTon>0 || r.idealShare>0; });
+    return {rows:rows, actualTotal:actualTotal};
+  }
 
-    html += '<div class="hero"><div class="label">Ortalama Günlük Nihai Kullanım</div>';
-    html += '<div class="big" style="font-size:32px;">'+(avg!==null?fmtTon(avg):'—')+'</div>';
-    html += '<div class="label">'+totals.length+' günlük kayıta göre</div></div>';
+  function renderOzet(){
+    var html = '<h2 class="page-title">Özet</h2><p class="page-sub">Seçilen tarih aralığına göre günlük nihai kullanım, ideal harmana uyum ve stok kırılımı.</p>';
 
-    html += '<div class="section"><div class="section-title">Çıkarımlar</div>';
-    if(maxDay) html += '<div class="note" style="margin-top:0;">En yüksek kullanım: <b>'+trDate(maxDay.date)+'</b> — '+fmtTon(maxDay.total)+'</div>';
-    if(minDay && minDay!==maxDay) html += '<div class="note">En düşük kullanım: <b>'+trDate(minDay.date)+'</b> — '+fmtTon(minDay.total)+'</div>';
-    if(anomalyDays>0) html += '<div class="note" style="border-left-color:var(--rust);">'+anomalyDays+' günde sayım beklenenden yüksek çıktı (olası kayıtsız giriş) — aşağıdaki listede kırmızı işaretli.</div>';
+    html += '<div class="row2">';
+    html += '<div class="field"><label>Başlangıç</label><input type="date" id="ozet-start-date" value="'+ozetStart+'"></div>';
+    html += '<div class="field"><label>Bitiş</label><input type="date" id="ozet-end-date" value="'+ozetEnd+'"></div>';
+    html += '</div>';
+    html += '<div class="row2" style="margin-top:-6px;margin-bottom:14px;">';
+    html += '<button class="btn btn-ghost" data-ozet-range="today" style="flex:1;padding:7px;font-size:12px;">Bugün</button>';
+    html += '<button class="btn btn-ghost" data-ozet-range="week" style="flex:1;padding:7px;font-size:12px;">Son 7 Gün</button>';
+    html += '<button class="btn btn-ghost" data-ozet-range="month" style="flex:1;padding:7px;font-size:12px;">Son 30 Gün</button>';
     html += '</div>';
 
-    html += '<div class="section"><div class="section-title">Günlük Kayıtlar</div><div class="ledger">';
-    days.slice(0,60).forEach(function(d){
-      html += '<div class="row"><div>';
-      html += '<div class="name">'+trDate(d.date)+'</div>';
-      var breakdown = d.rows.map(function(r){ return cardName(r.cardId)+': '+fmtTon(r.sarf); }).join(' · ');
-      html += '<div class="meta">'+breakdown+'</div>';
-      if(d.anomaly) html += '<div class="meta" style="color:var(--rust);">Bu günde bir veya daha fazla üründe sayım beklenenden yüksek çıktı.</div>';
-      html += '</div><div class="figs"><div class="ton">'+fmtTon(d.total)+'</div></div></div>';
-    });
-    html += '</div></div>';
+    var days = dailyUsageSummary(ozetStart, ozetEnd);
+
+    if(!days.length){
+      html += '<div class="empty">Seçilen tarih aralığında stok sayımı yok — "Fabrika Stok" sekmesinden sayım girildikçe burada görünecek.</div>';
+    } else {
+      var totals = days.map(function(d){ return d.total; }).filter(function(t){ return t>0; });
+      var avg = totals.length ? totals.reduce(function(s,t){return s+t;},0)/totals.length : null;
+      var maxDay=null, minDay=null;
+      days.forEach(function(d){
+        if(d.total<=0) return;
+        if(!maxDay || d.total>maxDay.total) maxDay=d;
+        if(!minDay || d.total<minDay.total) minDay=d;
+      });
+      var anomalyDays = days.filter(function(d){ return d.anomaly; }).length;
+
+      html += '<div class="hero"><div class="label">Ortalama Günlük Nihai Kullanım (ton)</div>';
+      html += '<div class="big" style="font-size:32px;">'+(avg!==null?fmtTon(avg):'—')+'</div>';
+      html += '<div class="label">'+totals.length+' günlük kayıta göre · '+trDate(ozetStart)+' – '+trDate(ozetEnd)+'</div></div>';
+
+      html += '<div class="section"><div class="section-title">Çıkarımlar</div>';
+      if(maxDay) html += '<div class="note" style="margin-top:0;">En yüksek kullanım: <b>'+trDate(maxDay.date)+'</b> — '+fmtTon(maxDay.total)+'</div>';
+      if(minDay && minDay!==maxDay) html += '<div class="note">En düşük kullanım: <b>'+trDate(minDay.date)+'</b> — '+fmtTon(minDay.total)+'</div>';
+      if(anomalyDays>0) html += '<div class="note" style="border-left-color:var(--rust);">'+anomalyDays+' günde sayım beklenenden yüksek çıktı (olası kayıtsız giriş) — aşağıdaki listede kırmızı işaretli.</div>';
+      html += '</div>';
+
+      // İdeal harmana uyum
+      var comp = blendComplianceForRange(days);
+      if(comp.actualTotal>0){
+        html += '<div class="section"><div class="section-title">İdeal Harmana Uyum</div>';
+        html += '<div class="note" style="margin-top:0;">Seçilen aralıkta fiilen yakılan karışım, güncel ideal harman önerisiyle karşılaştırılıyor. %8 puandan fazla sapma "uyumsuz" olarak işaretlenir.</div>';
+        html += '<div class="ledger">';
+        comp.rows.sort(function(a,b){ return Math.abs(b.diff)-Math.abs(a.diff); }).forEach(function(r){
+          var mismatch = Math.abs(r.diff) > 0.08;
+          html += '<div class="row"><div><div class="name">'+(mismatch?'<span class="flag low"></span>':'')+esc(r.name)+'</div>';
+          html += '<div class="meta">Fiili: %'+Math.round(r.actShare*100)+' · İdeal: %'+Math.round(r.idealShare*100);
+          if(mismatch) html += ' · <span style="color:var(--rust);">sapma %'+(r.diff>0?'+':'')+Math.round(r.diff*100)+'</span>';
+          html += '</div></div>';
+          html += '<div class="figs"><div class="ton">'+fmtTon(r.actTon)+'</div></div></div>';
+        });
+        html += '</div></div>';
+      }
+
+      html += '<div class="section"><div class="section-title">Günlük Kayıtlar</div><div class="ledger">';
+      days.slice(0,60).forEach(function(d){
+        html += '<div class="row"><div>';
+        html += '<div class="name">'+trDate(d.date)+'</div>';
+        var breakdown = d.rows.map(function(r){ return cardName(r.cardId)+': '+fmtTon(r.sarf); }).join(' · ');
+        html += '<div class="meta">'+breakdown+'</div>';
+        if(d.anomaly) html += '<div class="meta" style="color:var(--rust);">Bu günde bir veya daha fazla üründe sayım beklenenden yüksek çıktı.</div>';
+        html += '</div><div class="figs"><div class="ton">'+fmtTon(d.total)+'</div></div></div>';
+      });
+      html += '</div></div>';
+    }
+
+    // Anlaşma - Stok2 - Fabrika toplam stok kırılımı
+    var stok2Sum=0, fabSum=0, kalanSum=0;
+    var breakdownRows = DB.cards.map(function(c){
+      var s2 = stok2Stock(c.id), fb = fabrikaStock(c.id), kalan = agreementsKalanForCard(c.id);
+      stok2Sum+=s2; fabSum+=fb; kalanSum+=kalan;
+      return {id:c.id, name:c.name, stok2:s2, fabrika:fb, kalan:kalan};
+    }).filter(function(r){ return r.stok2>0 || r.fabrika>0 || r.kalan>0; });
+
+    html += '<div class="section" style="margin-top:24px;"><div class="section-title">Anlaşma · Stok2 · Fabrika Kırılımı</div>';
+    html += '<div class="hero" style="padding:14px 16px;"><div class="label">Toplam</div>';
+    html += '<div class="meta" style="font-size:14px;color:var(--ink);">Stok2: <b>'+fmtTon(stok2Sum)+'</b> · Fabrika: <b>'+fmtTon(fabSum)+'</b> · Bekleyen Anlaşma: <b>'+fmtTon(kalanSum)+'</b></div></div>';
+    if(!breakdownRows.length){
+      html += '<div class="empty">Henüz stok veya anlaşma verisi yok.</div>';
+    } else {
+      html += '<div class="ledger">';
+      breakdownRows.forEach(function(r){
+        html += '<div class="row"><div><div class="name">'+esc(r.name)+'</div>';
+        html += '<div class="meta">Stok2: '+fmtTon(r.stok2)+' · Fabrika: '+fmtTon(r.fabrika)+' · Bekleyen Anlaşma: '+fmtTon(r.kalan)+'</div>';
+        html += '</div><div class="figs"><div class="ton">'+fmtTon(r.stok2+r.fabrika)+'</div></div></div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
 
     document.getElementById('view').innerHTML = html;
   }
@@ -1008,37 +1083,9 @@
       html += '</div></div>';
       html += '<div class="hero"><div class="label">Bu Harmanın Kalorifik Değeri</div>';
       html += '<div class="big" style="font-size:32px;">'+fmtKcal(blend.kcal)+'</div></div>';
-      html += '<div class="note">Bu öneri, Fabrika + Stok2 toplam stok kırılımına, henüz teslim alınmamış anlaşma bakiyelerine (gelecekte gelecek miktar olarak), yakın zamandaki ortalama günlük sarfa göre otomatik hesaplanmıştır. Anlaşmasında hâlâ kalan miktar olan ürünler daha cömert paylandı — çünkü o ürünün stoğu yakın zamanda tazelenecek. Fabrika\'da hazır olmayan miktarların Stok2\'den çekilmesi gerekir (yukarıda ürün bazında belirtildi). Sahadaki gerçek duruma göre hedef sarf miktarını değiştirip anlık güncelleyebilirsiniz.</div>';
+      html += '<div class="note">Her ürünün payı, <b>Fabrika + Stok2 toplam stoğu</b> ile <b>henüz teslim alınmamış anlaşma bakiyesinin toplamına</b> göre hesaplanır — yani stoğu az olsa bile yolda büyük bir anlaşması olan ürün daha yüksek pay alır. Fabrika\'da hazır olmayan miktarların Stok2\'den çekilmesi gerekir (yukarıda ürün bazında belirtildi). Sahadaki gerçek duruma göre hedef sarf miktarını değiştirip anlık güncelleyebilirsiniz.</div>';
 
-      var palette = ['#B8862E','#8B4331','#56613F','#5B7A8B','#8B6F8B','#8B8331'];
-      var capacity = DB.fabrikaCapacity || 4000;
       var fabTotal = fabrikaTotal();
-      var pctFull = capacity>0 ? Math.min(fabTotal/capacity*100,100) : 0;
-      var free = Math.max(capacity-fabTotal,0);
-
-      html += '<div class="hero" style="margin-top:24px;"><div class="label">Fabrika Stoğu</div>';
-      html += '<div class="big">'+fmtTon(fabTotal)+' <small>/ '+fmtTon(capacity)+'</small></div>';
-      html += '<div class="label">%'+Math.round(pctFull)+' dolu · '+fmtTon(free)+' boş alan</div>';
-      if(fabTotal>0){
-        html += '<div class="stackbar">';
-        cards.forEach(function(c,i){
-          var t = fabrikaStock(c.id);
-          var pct = fabTotal>0 ? (t/fabTotal*100) : 0;
-          if(pct<=0) return;
-          html += '<div class="seg" style="width:'+pct.toFixed(2)+'%;background:'+palette[i%palette.length]+';"></div>';
-        });
-        if(free>0){
-          html += '<div class="seg" style="width:'+(free/capacity*100).toFixed(2)+'%;background:rgba(255,255,255,0.12);"></div>';
-        }
-        html += '</div><div class="legend">';
-        cards.forEach(function(c,i){
-          var t = fabrikaStock(c.id);
-          if(t<=0) return;
-          html += '<span class="item"><span class="dot" style="background:'+palette[i%palette.length]+';"></span>'+esc(c.name)+' · '+fmtTon(t)+'</span>';
-        });
-        html += '</div>';
-      }
-      html += '</div>';
 
       var totalAvgSarf = cards.reduce(function(s,c){ return s+avgDailySarf(c.id,7,'fabrika'); }, 0);
       html += '<div class="hero" style="padding:14px 16px;"><div class="label">Günlük Yakıt Bildirimi</div>';
@@ -1204,10 +1251,81 @@
   }
 
   // ---------- RENDER: GEÇMİŞ ----------
+  // ---------- ÖZET MAİLİ (Gmail compose, yedek veri dahil) ----------
+  // Not: Statik bir site otomatik/zamanlanmış e-posta gönderemez (sunucu/SMTP
+  // gerektirir). Bu buton Gmail'in kompoze ekranını, alıcılar + konu + içerik
+  // önceden doldurulmuş halde açar; gönderme işlemi elle (Gönder'e basarak)
+  // yapılır. E-posta içine, sistem sıfırlanırsa elle geri girilebilecek özet
+  // yedek veriler eklenir.
+  function buildSummaryEmailBody(){
+    var today = todayISO();
+    var lines = [];
+    lines.push('OMP & FBY Enerji — Stok Özeti ('+trDate(today)+')');
+    lines.push('');
+
+    var days = dailyUsageSummary(today, today);
+    if(days.length && days[0].total>0){
+      lines.push('Bugünkü nihai kullanım: '+fmtTon(days[0].total));
+    } else {
+      lines.push('Bugün için henüz sayım girilmedi.');
+    }
+    lines.push('');
+
+    lines.push('--- STOK KIRILIMI (Stok2 / Fabrika / Bekleyen Anlaşma) ---');
+    var stok2Sum=0, fabSum=0, kalanSum=0;
+    DB.cards.forEach(function(c){
+      var s2=stok2Stock(c.id), fb=fabrikaStock(c.id), kalan=agreementsKalanForCard(c.id);
+      stok2Sum+=s2; fabSum+=fb; kalanSum+=kalan;
+      lines.push(c.name+': Stok2 '+fmtTon(s2)+' · Fabrika '+fmtTon(fb)+' · Bekleyen Anlaşma '+fmtTon(kalan)+' · Kalori '+fmtKcal(c.kcal));
+    });
+    lines.push('TOPLAM: Stok2 '+fmtTon(stok2Sum)+' · Fabrika '+fmtTon(fabSum)+' · Bekleyen Anlaşma '+fmtTon(kalanSum));
+    lines.push('');
+
+    lines.push('--- AÇIK ANLAŞMALAR ---');
+    if(!DB.planned.length){
+      lines.push('Kayıtlı anlaşma yok.');
+    } else {
+      DB.planned.forEach(function(p){
+        var gelen = agreementReceived(p);
+        var kalan = Math.max(p.qty-gelen,0);
+        lines.push(agreementCardLabel(p)+(p.firma?' — '+p.firma:'')+': Toplam '+fmtTon(p.qty)+' · Gelen '+fmtTon(gelen)+' · Kalan '+fmtTon(kalan)+(p.date?(' · Tarih '+p.date):''));
+      });
+    }
+    lines.push('');
+
+    lines.push('=== YEDEK VERİ (sistem sıfırlanırsa geri yüklemek için) ===');
+    lines.push('Fabrika kapasitesi: '+(DB.fabrikaCapacity||4000)+' ton');
+    lines.push('Ürün kartları (id | ad | kcal | stok2 | fabrika):');
+    DB.cards.forEach(function(c){
+      lines.push('  '+c.id+' | '+c.name+' | '+c.kcal+' | '+(DB.levels.stok2[c.id]||0)+' | '+(DB.levels.fabrika[c.id]||0));
+    });
+    lines.push('Anlaşmalar (ürünler | firma | tarih | toplam):');
+    DB.planned.forEach(function(p){
+      lines.push('  '+agreementCardIds(p).join('+')+' | '+(p.firma||'-')+' | '+(p.date||'-')+' | '+p.qty);
+    });
+    lines.push('');
+    lines.push('(Bu bölüm, uygulamanın veritabanı sıfırlanırsa Ürünler ve Anlaşmalar sayfalarından elle yeniden girmek için bir referanstır. Tam yedek için Geçmiş sayfasındaki "Excel\'e Aktar" dosyasını düzenli saklayın.)');
+
+    return lines.join('\n');
+  }
+
+  function openSummaryEmail(){
+    var recipients = (DB.approvedUsers||[]).map(function(u){return u.email;}).join(',');
+    var subject = 'OMP & FBY Enerji Stok Özeti — '+trDate(todayISO());
+    var body = buildSummaryEmailBody();
+    var url = 'https://mail.google.com/mail/?view=cm&fs=1'
+      + '&to='+encodeURIComponent(recipients)
+      + '&su='+encodeURIComponent(subject)
+      + '&body='+encodeURIComponent(body);
+    window.open(url, '_blank');
+  }
+
   function renderGecmis(){
     var html = '<h2 class="page-title">Değişiklik Geçmişi</h2><p class="page-sub">Kim, ne zaman, ne değiştirdi.</p>';
 
     html += '<button class="btn btn-ghost btn-block" id="export-excel-btn">Excel\'e Aktar</button>';
+    html += '<button class="btn btn-primary btn-block" id="summary-email-btn" style="margin-top:8px;">Özet Maili Hazırla (Gmail)</button>';
+    html += '<div class="note">Bu, Gmail\'in kompoze ekranını, tüm onaylı kullanıcılar + bugünün özeti + geri yükleme için yedek veriyle önceden doldurulmuş halde açar. Otomatik/zamanlanmış gönderim yok — her seferinde elle açıp "Gönder"e basmanız gerekir; düzenli göndermek isterseniz telefonunuza günlük bir hatırlatıcı kurabilirsiniz.</div>';
 
     html += '<div class="section" style="margin-top:20px;"><div class="section-title">Kayıtlar</div>';
     if(!DB.changes.length){
@@ -1223,6 +1341,7 @@
     html += '</div>';
     document.getElementById('view').innerHTML = html;
   }
+
 
   // ---------- RENDER: KULLANICILAR ----------
   function renderKullanicilar(){
@@ -1259,59 +1378,24 @@
     document.getElementById('view').innerHTML = html;
   }
 
-  // ---------- RENDER: ASİSTAN ----------
+  // ---------- RENDER: GİRİŞ (Rehber) ----------
   function renderAsistan(){
-    var html = '<h2 class="page-title">Asistan</h2><p class="page-sub">Uygulamayı nasıl kullanacağınızı anlatır, sorularınızı yanıtlar.</p>';
+    var html = '<h2 class="page-title">Giriş</h2><p class="page-sub">Uygulamayı nasıl kullanacağınızı anlatan kısa rehber.</p>';
 
     html += '<div class="entry-card"><div class="title">Hızlı Rehber</div>';
     html += '<div class="note" style="margin-top:0;"><b>Günlük rutin:</b> Her sabah önce <b>Kantar Girişi</b> sekmesinden dünün kantar dökümünü yükleyin, sonra <b>Fabrika Stok</b> sekmesinde (Fabrika seçili, dün tarihiyle) gördüğünüz miktarları girin — günlük nihai kullanım otomatik hesaplanır.</div>';
-    html += '<div class="note"><b>Kantar Girişi:</b> Kantar dökümünü (.xlsx) buradan yükleyin. Yüklenmemiş günler varsa burada kırmızı yazıyla uyarılırsınız.</div>';
+    html += '<div class="note"><b>Kantar Girişi:</b> Kantar dökümünü (.xlsx) buradan yükleyin. Yüklenmemiş günler varsa burada kırmızı yazıyla uyarılırsınız. Eşleşmeyen ürünler otomatik olarak yeni ürün kartı önerilir.</div>';
     html += '<div class="note"><b>Fabrika Stok:</b> Sahada fiilen görülen stok miktarını günlük olarak buraya girin.</div>';
     html += '<div class="note"><b>Anlaşmalar:</b> Tedarikçi anlaşmalarını (firma, tarih, toplam miktar, birden fazla ürün seçilebilir) kaydedin; gelen/kalan miktar otomatik takip edilir.</div>';
-    html += '<div class="note"><b>Stoğa Göre Harman:</b> Fabrika\'nın doluluğu, kaç gün yakıt kaldığı, hangi ürünlerin başka sahadan çekilmesi gerektiği ve bugün yakılması gereken harman burada.</div>';
+    html += '<div class="note"><b>Stoğa Göre Harman:</b> Fabrika + Stok2 + bekleyen anlaşmalar toplamına göre bugün yakılması gereken harman burada.</div>';
     html += '<div class="note"><b>Ürünler:</b> Yakıt türlerini ve kalorifik değerlerini (kcal/kg) burada tanımlayın.</div>';
-    html += '<div class="note"><b>Özet:</b> Stok sayımlarından hesaplanan günlük nihai kullanım geçmişi ve kısa çıkarımlar (ortalama, en yüksek/düşük gün, anomali uyarıları) burada.</div>';
+    html += '<div class="note"><b>Özet:</b> Seçtiğiniz tarih aralığına göre günlük nihai kullanım, ideal harmana uyum ve stok kırılımı burada.</div>';
     html += '<div class="note" style="margin-bottom:0;"><b>Geçmiş:</b> Kim, ne zaman, ne değiştirdi — tüm kayıt.</div>';
     html += '</div>';
 
-
-    html += '<div class="entry-card"><div class="title">Soru Sor</div>';
-    html += '<div class="note" style="margin:0;">Bu bölümdeki serbest sohbet, uygulamanın önceki (claude.ai üzerinden açılan) sürümünde Claude\'un arka planda sağladığı, anahtar gerektirmeyen bir bağlantıyı kullanıyordu. Bağımsız (GitHub) sürümde bu bağlantı yok, o yüzden şimdilik kapalı — yukarıdaki Hızlı Rehber tüm sekmeleri ve günlük rutini anlatmaya devam ediyor. İsterseniz kendi Anthropic API anahtarınızla (console.anthropic.com) bu özellik ayrıca eklenebilir.</div>';
-    html += '</div>';
-
     document.getElementById('view').innerHTML = html;
-    var log = document.getElementById('chat-log');
-    if(log) log.scrollTop = log.scrollHeight;
   }
 
-  async function handleAsistanSend(){
-    var inp = document.getElementById('chat-input');
-    if(!inp) return;
-    var text = inp.value.trim();
-    if(!text || asistanLoading) return;
-    chatHistory.push({role:'user', content:text});
-    asistanLoading = true;
-    render();
-    try{
-      var res = await fetch('https://api.anthropic.com/v1/messages', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          model:'claude-sonnet-4-6',
-          max_tokens: 700,
-          system: ASISTAN_SYSTEM_PROMPT,
-          messages: chatHistory.map(function(m){ return {role:m.role, content:m.content}; })
-        })
-      });
-      var data = await res.json();
-      var textOut = (data && data.content ? data.content : []).map(function(b){ return b.text||''; }).join('\n').trim();
-      chatHistory.push({role:'assistant', content: textOut || 'Yanıt alınamadı, tekrar deneyin.'});
-    }catch(err){
-      chatHistory.push({role:'assistant', content:'Bağlantı hatası oluştu, tekrar deneyin.'});
-    }
-    asistanLoading = false;
-    render();
-  }
 
   var RENDERERS = {ozet:renderOzet, giris:renderGiris, kantar:renderKantarGirisi, onsaha:renderOnSaha, harman:renderHarman, kartlar:renderKartlar, gecmis:renderGecmis, asistan:renderAsistan, kullanicilar:renderKullanicilar};
 
@@ -1401,6 +1485,12 @@
       return;
     }
 
+    // summary email (Gmail compose)
+    if(t.id==='summary-email-btn'){
+      openSummaryEmail();
+      return;
+    }
+
     // kantar: open file picker
     if(t.id==='kantar-upload-btn'){
       document.getElementById('kantar-file-input').click();
@@ -1477,16 +1567,28 @@
       return;
     }
 
-    // asistan: send chat message
-    if(t.id==='chat-send-btn'){
-      handleAsistanSend();
-      return;
-    }
-
     // quick date buttons
     var qd = t.closest('button[data-quickdate]');
     if(qd){
       selDate = qd.getAttribute('data-quickdate')==='yesterday' ? yesterdayISO() : todayISO();
+      render();
+      return;
+    }
+
+    // ozet quick range buttons
+    var qr = t.closest('button[data-ozet-range]');
+    if(qr){
+      var mode = qr.getAttribute('data-ozet-range');
+      ozetEnd = todayISO();
+      if(mode==='today'){
+        ozetStart = todayISO();
+      } else if(mode==='week'){
+        var d7 = new Date(); d7.setDate(d7.getDate()-6);
+        ozetStart = d7.toISOString().slice(0,10);
+      } else if(mode==='month'){
+        var d30 = new Date(); d30.setDate(d30.getDate()-29);
+        ozetStart = d30.toISOString().slice(0,10);
+      }
       render();
       return;
     }
@@ -1578,6 +1680,7 @@
     if(editBtn){
       editingAgreementId = editBtn.getAttribute('data-edit-planned');
       render();
+      window.scrollTo({top:0, behavior:'smooth'});
       return;
     }
 
@@ -1659,13 +1762,6 @@
     }
   });
 
-  document.getElementById('view').addEventListener('keydown', function(e){
-    if(e.target.id==='chat-input' && e.key==='Enter'){
-      e.preventDefault();
-      handleAsistanSend();
-    }
-  });
-
   document.getElementById('view').addEventListener('change', function(e){
     if(e.target.id==='entry-date'){
       selDate = e.target.value;
@@ -1674,6 +1770,16 @@
     if(e.target.id==='blend-target-input'){
       var v = parseFloat(e.target.value);
       blendTarget = (v && v>0) ? v : 0;
+      render();
+    }
+    if(e.target.id==='ozet-start-date'){
+      ozetStart = e.target.value;
+      if(ozetStart>ozetEnd) ozetEnd = ozetStart;
+      render();
+    }
+    if(e.target.id==='ozet-end-date'){
+      ozetEnd = e.target.value;
+      if(ozetEnd<ozetStart) ozetStart = ozetEnd;
       render();
     }
   });
